@@ -47,42 +47,62 @@ class ArmFollow:
 
         ### parameters
         self.__rate_param = self.__data_interface.get_rate_param()
-        self.__force_feedback_param = self.__data_interface.get_force_feedback_param()
+        self.__follow_param = self.__data_interface.get_follow_param()
         self.__data_interface.logi(f"work rate: {self.__rate_param['ros']} hz")
         self.__data_interface.logi(
             f"teleop rate: {self.__rate_param['teleop']} hz")
 
         ### dynamics (gravity used by the control builders)
-        self.__gravity = np.asarray(self.__force_feedback_param["gravity"],
+        self.__gravity = np.asarray(self.__follow_param["gravity"],
                                     dtype=np.float64)
 
         ### control presets
         self.__arm_start_pos = np.asarray(
-            self.__force_feedback_param["arm_start_pos"], dtype=np.float64)
-        self.__arm_end_pos = np.asarray(self.__force_feedback_param["arm_end_pos"],
+            self.__follow_param["arm_start_pos"], dtype=np.float64)
+        self.__arm_end_pos = np.asarray(self.__follow_param["arm_end_pos"],
                                         dtype=np.float64)
         self.__grip_stable_pos = np.asarray(
-            self.__force_feedback_param["grip_stable_pos"], dtype=np.float64)
-        self.__arm_stable_kp = np.asarray(self.__force_feedback_param["arm_stable_kp"],
+            self.__follow_param["grip_stable_pos"], dtype=np.float64)
+        self.__arm_stable_kp = np.asarray(self.__follow_param["arm_stable_kp"],
                                           dtype=np.float64)
-        self.__arm_stable_kd = np.asarray(self.__force_feedback_param["arm_stable_kd"],
+        self.__arm_stable_kd = np.asarray(self.__follow_param["arm_stable_kd"],
                                           dtype=np.float64)
-        self.__grip_stable_kp = np.asarray(self.__force_feedback_param["grip_stable_kp"],
+        self.__grip_stable_kp = np.asarray(self.__follow_param["grip_stable_kp"],
                                            dtype=np.float64)
-        self.__grip_stable_kd = np.asarray(self.__force_feedback_param["grip_stable_kd"],
+        self.__grip_stable_kd = np.asarray(self.__follow_param["grip_stable_kd"],
                                            dtype=np.float64)
         self.__arm_slave_kp = np.asarray(
-            self.__force_feedback_param["arm_slave_kp"], dtype=np.float64)
+            self.__follow_param["arm_slave_kp"], dtype=np.float64)
         self.__arm_slave_kd = np.asarray(
-            self.__force_feedback_param["arm_slave_kd"], dtype=np.float64)
+            self.__follow_param["arm_slave_kd"], dtype=np.float64)
         self.__grip_slave_kp = np.asarray(
-            self.__force_feedback_param["grip_slave_kp"], dtype=np.float64)
+            self.__follow_param["grip_slave_kp"], dtype=np.float64)
         self.__grip_slave_kd = np.asarray(
-            self.__force_feedback_param["grip_slave_kd"], dtype=np.float64)
+            self.__follow_param["grip_slave_kd"], dtype=np.float64)
         self.__arm_slave_clip = np.asarray(
-            self.__force_feedback_param["arm_slave_clip"], dtype=np.float64)
+            self.__follow_param["arm_slave_clip"], dtype=np.float64)
         self.__grip_slave_clip = np.asarray(
-            self.__force_feedback_param["grip_slave_clip"], dtype=np.float64)
+            self.__follow_param["grip_slave_clip"], dtype=np.float64)
+
+        ### follow control coefficients
+        # grip trigger scale: master handle trigger -> slave grip displacement
+        self.__grip_trigger_scale = float(
+            self.__follow_param["grip_trigger_scale"])
+        # velocity coupling coefficient (eta): master velocity term in slave torque
+        # T = Kp(q_t - q_s) - Kd q_s(vel) + eta Kd q_t(vel)
+        self.__velocity_coupling_coeff = float(
+            self.__follow_param["velocity_coupling_coeff"])
+        # error proportional gain (alpha): scales error e, dynamically adjusts kp
+        self.__error_proportional_gain = float(
+            self.__follow_param["error_proportional_gain"])
+        # kp clamp bounds (Kmin / Kmax): dynamically adjusted kp stays in [kmin, kmax]
+        self.__kmin = float(self.__follow_param["kmin"])
+        self.__kmax = float(self.__follow_param["kmax"])
+        self.__data_interface.logi(
+            f"follow coeffs: grip_trigger_scale={self.__grip_trigger_scale}, "
+            f"velocity_coupling_coeff={self.__velocity_coupling_coeff}, "
+            f"error_proportional_gain={self.__error_proportional_gain}, "
+            f"kmin={self.__kmin}, kmax={self.__kmax}")
 
         ### master (hello) handle state (latest joy/trigger sample)
         self.__joy_state = None
@@ -149,8 +169,8 @@ class ArmFollow:
                 eff=np.zeros(ARM_DOF),
                 kp=self.__arm_stable_kp.copy(),
                 kd=self.__arm_stable_kd.copy(),
-                lim_vel=10.0 * np.ones(ARM_DOF, dtype=np.float64),
-                lim_acc=10.0 * np.ones(ARM_DOF, dtype=np.float64),
+                lim_vel=5.0 * np.ones(ARM_DOF, dtype=np.float64),
+                lim_acc=100.0 * np.ones(ARM_DOF, dtype=np.float64),
             ),
             pose=self.__default_pose(),
         )
@@ -170,6 +190,7 @@ class ArmFollow:
 
     def __build_follow_ctrl(
             self,
+            Kp: Optional[np.ndarray] = None,
             arm_jnt_pos: Optional[np.ndarray] = None,
             arm_jnt_eff: Optional[np.ndarray] = None,
             arm_jnt_vel: Optional[np.ndarray] = None,
@@ -184,13 +205,13 @@ class ArmFollow:
                 z=float(self.__gravity[2]),
             ),
             jnt=HexDcBaseJntFull(
-                pos=arm_jnt_pos if arm_jnt_pos is not None else self.__arm_start_pos.copy(),
+                pos=arm_jnt_pos if arm_jnt_pos is not None else self.__arm_end_pos.copy(),
                 vel=arm_jnt_vel if arm_jnt_vel is not None else np.zeros(ARM_DOF),
                 eff=arm_jnt_eff if arm_jnt_eff is not None else np.zeros(ARM_DOF),
-                kp=self.__arm_slave_kp.copy(),
+                kp= Kp if Kp is not None else self.__arm_slave_kp.copy(),
                 kd=self.__arm_slave_kd.copy(),
-                lim_vel=np.zeros(ARM_DOF),
-                lim_acc=np.zeros(ARM_DOF),
+                lim_vel=np.ones_like(arm_jnt_pos) * 10,
+                lim_acc=np.ones_like(arm_jnt_pos) * 10,
             ),
             pose=self.__default_pose(),
         )
@@ -274,7 +295,7 @@ class ArmFollow:
                 slave_target, slave_done = slave_planner.get_target_position()
                 if slave_done:
                     break
-                if slave_target is not None:
+                if slave_target is not None: 
                     self.__data_interface.pub_slave_manip_ctrl(
                         self.__build_stable_ctrl(jnt_pos=slave_target))
                 self.__data_interface.sleep()
@@ -311,9 +332,7 @@ class ArmFollow:
 
         slave_target_pos = None
 
-        # grip state variables
-        grip_master_pos = None
-        grip_master_vel = None
+        # grip state variables (master hello has no grip motor -> slave only)
         grip_slave_pos = None
         grip_slave_vel = None
         grip_slave_target = None
@@ -330,17 +349,6 @@ class ArmFollow:
                 master_vel = np.asarray(
                     master_state.manip_state.arm_state.jnt.velocity, dtype=np.float64)
 
-                # grip state (hello publishes an empty grip -> falls back)
-                try:
-                    grip_master_pos = np.asarray(
-                        master_state.manip_state.grip_state.jnt.position, dtype=np.float64)
-                    grip_master_vel = np.asarray(
-                        master_state.manip_state.grip_state.jnt.velocity, dtype=np.float64)
-                except Exception:
-                    grip_master_pos = None
-                    grip_master_vel = None
-                    self.__data_interface.logw("master grip state not available")
-
             ## slave
             if slave_state is not None:
                 slave_pos = np.asarray(
@@ -348,87 +356,102 @@ class ArmFollow:
                 slave_vel = np.asarray(
                     slave_state.manip_state.arm_state.jnt.velocity, dtype=np.float64)
 
-                try:
-                    grip_slave_pos = np.asarray(
-                        slave_state.manip_state.grip_state.jnt.position, dtype=np.float64)
-                    grip_slave_vel = np.asarray(
-                        slave_state.manip_state.grip_state.jnt.velocity, dtype=np.float64)
-                except Exception:
-                    grip_slave_pos = None
-                    grip_slave_vel = None
-                    self.__data_interface.logw("slave grip state not available")
+                # try:
+                #     grip_slave_pos = np.asarray(
+                #         slave_state.manip_state.grip_state.jnt.position, dtype=np.float64)
+                #     grip_slave_vel = np.asarray(
+                #         slave_state.manip_state.grip_state.jnt.velocity, dtype=np.float64)
+                # except Exception:
+                #     grip_slave_pos = None
+                #     grip_slave_vel = None
+                #     self.__data_interface.logw("slave grip state not available")
 
-            if master_pos is not None and slave_pos is not None and master_vel is not None:
+            if (master_pos is not None and master_vel is not None and 
+                slave_pos is not None and slave_vel is not None):
                 try:
-                    # slave follows master: clip the per-joint position error
-                    slave_target_pos, _ = self.__compute_effective_target(
-                        slave_pos, master_pos, None, self.__arm_slave_clip)
+                    
+                    err = (master_pos - slave_pos)
+                    
+                    Kp = self.__dynamic_kp(
+                        e = err,  # type: ignore
+                        K_min = self.__kmin, 
+                        K_max = self.__kmax, 
+                        alpha = self.__error_proportional_gain
+                    )
+                    
+                    self.__data_interface.logd(f"dynamic Kp: {Kp}")
+                    
+                    Tau: np.ndarray = self.__compute_torque(
+                        e=err, # type: ignore
+                        dq_t=master_vel,
+                        dq_s=slave_vel,
+                        K_p=Kp,
+                        K_d=self.__arm_slave_kd,
+                        eta=self.__velocity_coupling_coeff
+                    )
+                    
+                    err_max = np.max(np.abs(err))
+                    err_limit=0.05
+                    if err_max < err_limit:
+                        slave_target_pos = slave_pos
+                    else:
+                        slave_target_pos = slave_pos + (err / err_max)  * err_limit
+                
                 except Exception:
                     traceback.print_exc()
+                    continue
 
-                ### TODO: slave grip via master hello joystick (master hello
-                # has no grip motor). Map handle_state trigger/buttons to a
-                # slave grip target — mapping TBD. Default: slave grip stays
-                # at grip_stable_pos.
+                ### TODO: slave grip via master hello trigger 
                 grip_slave_target = None
-                if (self.__joy_state is not None
-                        and grip_master_pos is not None
-                        and grip_slave_pos is not None
-                        and grip_master_pos.shape[0] == GRIP_DOF
-                        and grip_slave_pos.shape[0] == GRIP_DOF):
-                    try:
-                        grip_slave_target, _ = self.__compute_effective_target(
-                            grip_slave_pos, grip_master_pos,
-                            None, self.__grip_slave_clip)
-                    except Exception:
-                        traceback.print_exc()
 
                 # master (hello) is read-only: only the slave follow ctrl
                 self.__data_interface.pub_slave_manip_ctrl(
                     self.__build_follow_ctrl(
+                        Kp=Kp,
                         arm_jnt_pos=slave_target_pos,
                         arm_jnt_vel=master_vel,
+                        arm_jnt_eff=Tau,
                         grip_jnt_pos=grip_slave_target,
-                        grip_jnt_vel=grip_master_vel,
+                        grip_jnt_vel=None,
                     ))
 
             self.__data_interface.sleep()
 
-    def __compute_effective_target(
-            self,
-            current: np.ndarray,
-            target: np.ndarray,
-            deadzone: Optional[np.ndarray],
-            clip_bound: Optional[np.ndarray] = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def __dynamic_kp(
+        self, 
+        e: np.ndarray, 
+        K_min: float, 
+        K_max: float, 
+        alpha: float
+    ) -> np.ndarray:        
+        """动态比例增益"""
+        return K_min + (K_max - K_min) * np.tanh(alpha * np.abs(e))
+    
+    def __compute_torque(
+        self,
+        e: np.ndarray,
+        dq_t: np.ndarray,
+        dq_s: np.ndarray,
+        K_p: np.ndarray,
+        K_d: np.ndarray,
+        eta: float
+    ) -> np.ndarray:
         """
-        Apply deadzone compensation and saturation clipping.
-
-        Args:
-            current: Current joint positions, shape (N,)
-            target: Desired joint positions, shape (N,)
-            deadzone: Per-joint deadzone width, shape (N,). None = no deadzone.
-            clip_bound: Per-joint saturation limit, shape (N,). None = no clipping.
-
-        Returns:
-            Effective target after deadzone + clipping, shape (N,)
+        计算输出力矩 τ
+        
+        参数:
+            e: 位置误差
+            dq_t, dq_s: 主端、从端速度
+            K_p: 比例增益
+            K_d: 微分增益
+            eta: 速度耦合系数
         """
-        e = target - current
-
-        zero_mask = np.zeros_like(e)
-
-        if deadzone is not None:
-            e_abs = np.fabs(e)
-            zero_mask = (e_abs <= deadzone)
-            e[zero_mask] = 0.0
-            e[~zero_mask] = e[~zero_mask] - np.sign(e[~zero_mask]) * deadzone[~zero_mask]
-
-        if clip_bound is not None:
-            e = np.clip(e, -clip_bound, clip_bound)
-
-        return current + e, zero_mask
-
-
+        e = e              # 位置误差
+        K_p = K_p
+        tau = K_p * e - K_d * dq_s + eta * K_d * dq_t
+        return tau
+    
+    
 def main():
     arm_follow = ArmFollow()
     try:

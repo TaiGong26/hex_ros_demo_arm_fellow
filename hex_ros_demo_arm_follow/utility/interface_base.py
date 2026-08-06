@@ -22,7 +22,7 @@ class InterfaceBase(ABC):
         ### ros parameters
         self._rate_param = {}
         self._model_param = {}
-        self._force_feedback_param = {}
+        self._follow_param = {}
 
         ### rx msg queues
         self._manip_state_deque = deque(maxlen=100)
@@ -85,8 +85,8 @@ class InterfaceBase(ABC):
     def get_model_param(self) -> dict:
         return self._model_param
 
-    def get_force_feedback_param(self) -> dict:
-        return self._force_feedback_param
+    def get_follow_param(self) -> dict:
+        return self._follow_param
 
     ####################
     ### publishers

@@ -85,29 +85,22 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('arm_stable_kd', [5.0, 5.0, 5.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_stable_kp', [10.0])
         self.__node.declare_parameter('grip_stable_kd', [0.5])
-        self.__node.declare_parameter('arm_master_kp',
-                                      [0.0, 0.0, 0.0, 150.0, 100.0, 100.0])
-        self.__node.declare_parameter('arm_master_kd',
-                                      [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
-        self.__node.declare_parameter('grip_master_kp', [10.0])
-        self.__node.declare_parameter('grip_master_kd', [0.5])
         self.__node.declare_parameter('arm_slave_kp',
                                       [0.0, 0.0, 0.0, 150.0, 100.0, 100.0])
         self.__node.declare_parameter('arm_slave_kd', [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_slave_kp', [10.0])
         self.__node.declare_parameter('grip_slave_kd', [0.5])
-        self.__node.declare_parameter('arm_master_deadzone',
-                                      [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        self.__node.declare_parameter('arm_master_clip',
-                                      [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
         self.__node.declare_parameter('arm_slave_deadzone',
                                       [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
         self.__node.declare_parameter('arm_slave_clip',
                                       [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
-        self.__node.declare_parameter('grip_master_deadzone', [0.01])
-        self.__node.declare_parameter('grip_master_clip', [0.5])
         self.__node.declare_parameter('grip_slave_deadzone', [0.01])
         self.__node.declare_parameter('grip_slave_clip', [0.3])
+        self.__node.declare_parameter('grip_trigger_scale', 1.0)
+        self.__node.declare_parameter('velocity_coupling_coeff', 1.0)
+        self.__node.declare_parameter('error_proportional_gain', 1.0)
+        self.__node.declare_parameter('kmin', 10.0)
+        self.__node.declare_parameter('kmax', 200.0)
         self.__node.declare_parameter('extra_mass', 0.0)
 
         self._rate_param.update({
@@ -122,7 +115,7 @@ class DataInterface(InterfaceBase):
             "pose_end_in_flange":
             list(self.__node.get_parameter('pose_end_in_flange').value),
         }
-        self._force_feedback_param = {
+        self._follow_param = {
             "gravity":
             list(self.__node.get_parameter('gravity').value),
             "arm_start_pos":
@@ -139,14 +132,6 @@ class DataInterface(InterfaceBase):
             list(self.__node.get_parameter('grip_stable_kp').value),
             "grip_stable_kd":
             list(self.__node.get_parameter('grip_stable_kd').value),
-            "arm_master_kp":
-            list(self.__node.get_parameter('arm_master_kp').value),
-            "arm_master_kd":
-            list(self.__node.get_parameter('arm_master_kd').value),
-            "grip_master_kp":
-            list(self.__node.get_parameter('grip_master_kp').value),
-            "grip_master_kd":
-            list(self.__node.get_parameter('grip_master_kd').value),
             "arm_slave_kp":
             list(self.__node.get_parameter('arm_slave_kp').value),
             "arm_slave_kd":
@@ -155,22 +140,24 @@ class DataInterface(InterfaceBase):
             list(self.__node.get_parameter('grip_slave_kp').value),
             "grip_slave_kd":
             list(self.__node.get_parameter('grip_slave_kd').value),
-            "arm_master_deadzone":
-            list(self.__node.get_parameter('arm_master_deadzone').value),
-            "arm_master_clip":
-            list(self.__node.get_parameter('arm_master_clip').value),
             "arm_slave_deadzone":
             list(self.__node.get_parameter('arm_slave_deadzone').value),
             "arm_slave_clip":
             list(self.__node.get_parameter('arm_slave_clip').value),
-            "grip_master_deadzone":
-            list(self.__node.get_parameter('grip_master_deadzone').value),
-            "grip_master_clip":
-            list(self.__node.get_parameter('grip_master_clip').value),
             "grip_slave_deadzone":
             list(self.__node.get_parameter('grip_slave_deadzone').value),
             "grip_slave_clip":
             list(self.__node.get_parameter('grip_slave_clip').value),
+            "grip_trigger_scale":
+            float(self.__node.get_parameter('grip_trigger_scale').value),
+            "velocity_coupling_coeff":
+            float(self.__node.get_parameter('velocity_coupling_coeff').value),
+            "error_proportional_gain":
+            float(self.__node.get_parameter('error_proportional_gain').value),
+            "kmin":
+            float(self.__node.get_parameter('kmin').value),
+            "kmax":
+            float(self.__node.get_parameter('kmax').value),
             "extra_mass":
             float(self.__node.get_parameter('extra_mass').value),
         }
