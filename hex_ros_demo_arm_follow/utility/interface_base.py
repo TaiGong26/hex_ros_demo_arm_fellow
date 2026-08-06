@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 
 from hex_util_msg.dataclass.dataclass_robo import HexDcRoboManipCtrl
 from hex_util_msg.dataclass.dataclass_robo import HexDcRoboManipStateStamped
+from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopHandleStateStamped
 from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopKeyboardState
 
 
@@ -28,6 +29,7 @@ class InterfaceBase(ABC):
         self._master_manip_state_deque = deque(maxlen=100)
         self._slave_manip_state_deque = deque(maxlen=100)
         self._keyboard_deque = deque(maxlen=100)
+        self._joy_state_deque = deque(maxlen=100)
 
         ### name
         self._name = name
@@ -138,3 +140,10 @@ class InterfaceBase(ABC):
         latest: bool = False,
     ) -> Optional[HexDcTeleopKeyboardState]:
         return self.deque_helper(self._keyboard_deque, latest)
+
+    # master (hello) handle/joy state
+    def get_joy_state(
+        self,
+        latest: bool = False,
+    ) -> Optional[HexDcTeleopHandleStateStamped]:
+        return self.deque_helper(self._joy_state_deque, latest)

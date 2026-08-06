@@ -84,6 +84,9 @@ class ArmFollow:
         self.__grip_slave_clip = np.asarray(
             self.__force_feedback_param["grip_slave_clip"], dtype=np.float64)
 
+        ### master (hello) handle state (latest joy/trigger sample)
+        self.__joy_state = None
+
         ### threads
         self.__stop_event = threading.Event()
         self.__start_event = threading.Event()
@@ -318,6 +321,7 @@ class ArmFollow:
         while self.__is_running():
             master_state = self.__data_interface.get_master_manip_state(latest=True)
             slave_state = self.__data_interface.get_slave_manip_state(latest=True)
+            self.__joy_state = self.__data_interface.get_joy_state(latest=True)
 
             ## master
             if master_state is not None:
@@ -362,10 +366,14 @@ class ArmFollow:
                 except Exception:
                     traceback.print_exc()
 
-                ### TODO: grip follow strategy (default: slave grip stays at
-                # grip_stable_pos because master hello has no grip)
+                ### TODO: slave grip via master hello joystick (master hello
+                # has no grip motor). Map handle_state trigger/buttons to a
+                # slave grip target — mapping TBD. Default: slave grip stays
+                # at grip_stable_pos.
                 grip_slave_target = None
-                if (grip_master_pos is not None and grip_slave_pos is not None
+                if (self.__joy_state is not None
+                        and grip_master_pos is not None
+                        and grip_slave_pos is not None
                         and grip_master_pos.shape[0] == GRIP_DOF
                         and grip_slave_pos.shape[0] == GRIP_DOF):
                     try:

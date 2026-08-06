@@ -13,6 +13,7 @@
         <param name="model_urdf" value="$(find hex_ros_urdf_archer_y6)/urdf/gr100_comp.urdf"/>
         <!-- subscribe -->
         <remap from="master/manip_state" to="master/manip_state"/>
+        <remap from="master/joy_state" to="master/joy_state"/>
         <remap from="slave/manip_state" to="slave/manip_state"/>
         <remap from="teleop_keyboard_state" to="teleop_keyboard_state"/>
         <!-- publish -->

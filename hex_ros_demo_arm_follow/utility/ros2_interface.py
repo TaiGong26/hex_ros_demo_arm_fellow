@@ -20,6 +20,7 @@ from hex_ros_msgs.msg import (
     HexRosRoboManipCtrl,
     HexRosRoboManipCtrlStamped,
     HexRosRoboManipStateStamped,
+    HexRosTeleopHandleStateStamped,
     HexRosTeleopKeyboardStateStamped,
 )
 
@@ -40,7 +41,10 @@ from hex_util_msg.dataclass.dataclass_robo import (
     HexDcRoboManipState,
     HexDcRoboManipStateStamped,
 )
-from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopKeyboardState
+from hex_util_msg.dataclass.dataclass_teleop import (
+    HexDcTeleopHandleState,
+    HexDcTeleopKeyboardState,
+)
 
 from .interface_base import InterfaceBase
 
@@ -212,8 +216,15 @@ class DataInterface(InterfaceBase):
             self.__slave_manip_state_callback,
             10,
         )
+        self.__master_joy_state_sub = self.__node.create_subscription(
+            HexRosTeleopHandleStateStamped,
+            'master/joy_state',
+            self.__master_joy_state_callback,
+            10,
+        )
         self.__master_manip_state_sub
         self.__slave_manip_state_sub
+        self.__master_joy_state_sub
 
         ### spin thread
         self.__shutting_down = False
@@ -349,6 +360,9 @@ class DataInterface(InterfaceBase):
         self._slave_manip_state_deque.append(
             self.__manip_state_msg_to_dc(msg))
 
+    def __master_joy_state_callback(self, msg: HexRosTeleopHandleStateStamped):
+        self._joy_state_deque.append(self.__joy_state_msg_to_dc(msg))
+
     @staticmethod
     def __keyboard_msg_to_dc(
             msg: HexRosTeleopKeyboardStateStamped) -> HexDcTeleopKeyboardState:
@@ -358,6 +372,20 @@ class DataInterface(InterfaceBase):
             for letter in _LETTERS
         }
         return HexDcTeleopKeyboardState(**kwargs)
+
+    @staticmethod
+    def __joy_state_msg_to_dc(
+            msg: HexRosTeleopHandleStateStamped) -> HexDcTeleopHandleState:
+        hs = msg.handle_state
+        return HexDcTeleopHandleState(
+            trigger=float(hs.trigger),
+            axis_x=float(hs.axis_x),
+            axis_y=float(hs.axis_y),
+            btn_w=bool(hs.btn_w),
+            btn_x=bool(hs.btn_x),
+            btn_y=bool(hs.btn_y),
+            btn_z=bool(hs.btn_z),
+        )
 
     @staticmethod
     def __jnt_state_to_dc(jnt) -> HexDcBaseJntState:

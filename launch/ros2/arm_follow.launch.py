@@ -38,6 +38,7 @@ def generate_launch_description():
         ],
         remappings=[
             ('master/manip_state', 'master/manip_state'),
+            ('master/joy_state', 'master/joy_state'),
             ('slave/manip_state', 'slave/manip_state'),
             ('slave/manip_ctrl', 'slave/manip_ctrl'),
             ('teleop_keyboard_state', 'teleop_keyboard_state'),
