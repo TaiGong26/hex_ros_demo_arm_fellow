@@ -2,13 +2,13 @@
 <!-- Copyright (c) 2026  Dong Zhaorui.     -->
 <!-- All rights reserved.                  -->
 <!-- Author: Dong Zhaorui 847235539@qq.com -->
-<!-- Date  : 2026-06-30                    -->
+<!-- Date  : 2026-08-06                    -->
 <!--#######################################-->
 
 <launch>
-    <node name="arm_force_feedback" pkg="hex_ros_demo_arm_force_feedback" type="arm_force_feedback.py" output="screen">
+    <node name="arm_follow" pkg="hex_ros_demo_arm_follow" type="arm_follow.py" output="screen">
         <!-- load default parameters -->
-        <rosparam file="$(find hex_ros_demo_arm_force_feedback)/config/ros1/arm_force_feedback.yaml"/>
+        <rosparam file="$(find hex_ros_demo_arm_follow)/config/ros1/arm_follow.yaml"/>
         <!-- robot model used for dynamics -->
         <param name="model_urdf" value="$(find hex_ros_urdf_archer_y6)/urdf/gr100_comp.urdf"/>
         <!-- subscribe -->
@@ -16,7 +16,6 @@
         <remap from="slave/manip_state" to="slave/manip_state"/>
         <remap from="teleop_keyboard_state" to="teleop_keyboard_state"/>
         <!-- publish -->
-        <remap from="master/manip_ctrl" to="master/manip_ctrl"/>
         <remap from="slave/manip_ctrl" to="slave/manip_ctrl"/>
     </node>
 </launch>

@@ -2,7 +2,7 @@ import os
 from setuptools import setup, find_packages
 from glob import glob
 
-package_name = 'hex_ros_demo_arm_force_feedback'
+package_name = 'hex_ros_demo_arm_follow'
 
 
 def get_files(tar: str, src: str):
@@ -34,11 +34,11 @@ setup(
     zip_safe=True,
     maintainer='Dong Zhaorui',
     maintainer_email='dzr159@gmail.com',
-    description='Impedance control demo for the Archer Y6 arm',
+    description='Master-slave follow demo for the Archer Y6 arm',
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'arm_force_feedback = hex_ros_demo_arm_force_feedback.arm_force_feedback:main',
+            'arm_follow = hex_ros_demo_arm_follow.arm_follow:main',
         ],
     },
 )

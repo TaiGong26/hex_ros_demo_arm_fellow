@@ -2,24 +2,25 @@
 <!-- Copyright (c) 2026  Dong Zhaorui.     -->
 <!-- All rights reserved.                  -->
 <!-- Author: Dong Zhaorui 847235539@qq.com -->
-<!-- Date  : 2026-06-30                    -->
+<!-- Date  : 2026-08-06                    -->
 <!--#######################################-->
 
 <launch>
+    <arg name="master_robot_host" default="192.168.1.100"/>
+    <arg name="master_robot_port" default="8439"/>
     <!-- simulation arguments -->
     <arg name="viewer" default="true"/>
     <arg name="rviz" default="false"/>
 
-    <!-- sim environment: master (mujoco + rviz, no built-in test ctrl) -->
+    <!-- master robot (real hello, read-only) -->
     <group ns="master">
-        <include file="$(find hex_ros_sim_archer_y6)/launch/ros1/sim_archer_y6.launch">
-            <arg name="viewer" value="$(arg viewer)"/>
-            <arg name="rviz" value="$(arg rviz)"/>
-            <arg name="test" value="false"/>
+        <include file="$(find hex_ros_robot_arm)/launch/ros1/hello.launch">
+            <arg name="robot_host" value="$(arg master_robot_host)"/>
+            <arg name="robot_port" value="$(arg master_robot_port)"/>
         </include>
     </group>
 
-    <!-- sim environment: slave (mujoco + rviz, no built-in test ctrl) -->
+    <!-- slave sim environment (mujoco + rviz, no built-in test ctrl) -->
     <group ns="slave">
         <include file="$(find hex_ros_sim_archer_y6)/launch/ros1/sim_archer_y6.launch">
             <arg name="viewer" value="$(arg viewer)"/>
@@ -31,6 +32,6 @@
     <!-- keyboard teleop -->
     <include file="$(find hex_ros_teleop_keyboard)/launch/ros1/teleop_keyboard.launch"/>
 
-    <!-- force feedback control node -->
-    <include file="$(find hex_ros_demo_arm_force_feedback)/launch/ros1/arm_force_feedback.launch"/>
+    <!-- follow control node -->
+    <include file="$(find hex_ros_demo_arm_follow)/launch/ros1/arm_follow.launch"/>
 </launch>

@@ -1,6 +1,6 @@
-arm_force_feedback:
+arm_follow:
   ros__parameters:
-    # impedance control work loop rate [hz]
+    # master-slave follow work loop rate [hz]
     rate_ros: 1000.0
 
     # keyboard monitor rate [hz]
