@@ -22,6 +22,7 @@ from hex_ros_msgs.msg import (
     HexRosTeleopHandleStateStamped,
     HexRosTeleopKeyboardStateStamped,
 )
+from std_msgs.msg import ColorRGBA
 
 from hex_util_msg.dataclass.dataclass_base import (
     HexDcBaseHeader,
@@ -147,6 +148,11 @@ class DataInterface(InterfaceBase):
             HexRosRoboManipCtrlStamped,
             queue_size=10,
         )
+        self.__master_color_cmd_pub = rospy.Publisher(
+            'master/color_cmd',
+            ColorRGBA,
+            queue_size=10,
+        )
 
         ### subscriber
         self.__manip_state_sub = rospy.Subscriber(
@@ -233,6 +239,14 @@ class DataInterface(InterfaceBase):
             grip_ctrl=self.__grip_ctrl_to_msg(out.grip_ctrl),
         )
         self.__slave_manip_ctrl_pub.publish(msg)
+
+    def pub_master_color_cmd(self, r: float, g: float, b: float):
+        msg = ColorRGBA()
+        msg.r = r
+        msg.g = g
+        msg.b = b
+        msg.a = 1.0
+        self.__master_color_cmd_pub.publish(msg)
 
     @staticmethod
     def __jnt_to_msg(jnt) -> HexRosJnt:

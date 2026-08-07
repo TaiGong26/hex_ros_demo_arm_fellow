@@ -100,6 +100,10 @@ class InterfaceBase(ABC):
     def pub_slave_manip_ctrl(self, out: HexDcRoboManipCtrl):
         raise NotImplementedError("InterfaceBase.pub_slave_manip_ctrl")
 
+    @abstractmethod
+    def pub_master_color_cmd(self, r: float, g: float, b: float):
+        raise NotImplementedError("InterfaceBase.pub_master_color_cmd")
+
     ####################
     ### subscribers
     ####################

@@ -38,6 +38,9 @@ from TrajectoryController import Move2TargetPlanner
 ARM_DOF = 6
 GRIP_DOF = 1
 
+LED_YELLOW = (1.0, 1.0, 0.0)
+LED_GREEN = (0.0, 1.0, 0.0)
+
 
 class ArmFollow:
 
@@ -231,6 +234,10 @@ class ArmFollow:
         )
         return HexDcRoboManipCtrl(arm_ctrl=arm_ctrl, grip_ctrl=grip_ctrl)
 
+    def __set_master_led(self, r: float, g: float, b: float):
+        """Publish an RGB color to the master (hello) LED strip."""
+        self.__data_interface.pub_master_color_cmd(r, g, b)
+
     ##############################################################
     # Processes
     ##############################################################
@@ -252,6 +259,9 @@ class ArmFollow:
     def __move_to_start(self):
         self.__data_interface.logi(
             "[arm_follow]: move to start position")
+
+        # init phase: yellow LED on the master (hello) robot
+        self.__set_master_led(*LED_YELLOW)
 
         # wait for master/slave to connected; exit the node if no data in 5s
         master_state = None
@@ -283,10 +293,13 @@ class ArmFollow:
             self.__stop_event.set()
             return
 
+        # top-of-function publish can be dropped by the startup DDS discovery
+        # race; both manip_states are in now, graph is warm — re-publish once
+        self.__set_master_led(*LED_YELLOW)
+
         # init: the slave slowly comes online onto the master position.
         self.__data_interface.logw(
-            "keep the master still: the slave will slowly come online "
-            "to the master position")
+            "The slave arm slowly follows the master arm and comes online to the master arm's position.")
 
         master_pos = np.asarray(
             master_state.manip_state.arm_state.jnt.position,
@@ -346,6 +359,9 @@ class ArmFollow:
         self.__data_interface.logi(
             "[arm_follow]: move to exit position")
 
+        # exit phase: yellow LED on the master (hello) robot
+        self.__set_master_led(*LED_YELLOW)
+
         slave_state = self.__data_interface.get_slave_manip_state(
             latest=True)
         if slave_state is None:
@@ -393,6 +409,9 @@ class ArmFollow:
         self.__follow()
 
     def __follow(self):
+        # work phase: green LED on the master (hello) robot
+        self.__set_master_led(*LED_GREEN)
+
         master_pos = None
         master_vel = None
 
