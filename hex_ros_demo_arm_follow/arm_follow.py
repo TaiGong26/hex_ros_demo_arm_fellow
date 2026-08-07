@@ -169,8 +169,8 @@ class ArmFollow:
                 eff=np.zeros(ARM_DOF),
                 kp=self.__arm_stable_kp.copy(),
                 kd=self.__arm_stable_kd.copy(),
-                lim_vel=5.0 * np.ones(ARM_DOF, dtype=np.float64),
-                lim_acc=100.0 * np.ones(ARM_DOF, dtype=np.float64),
+                lim_vel=10.0 * np.ones(ARM_DOF, dtype=np.float64),
+                lim_acc=10.0 * np.ones(ARM_DOF, dtype=np.float64),
             ),
             pose=self.__default_pose(),
         )
@@ -203,6 +203,7 @@ class ArmFollow:
                 x=float(self.__gravity[0]),
                 y=float(self.__gravity[1]),
                 z=float(self.__gravity[2]),
+                # z=float(0.0),
             ),
             jnt=HexDcBaseJntFull(
                 pos=arm_jnt_pos if arm_jnt_pos is not None else self.__arm_end_pos.copy(),
@@ -210,8 +211,8 @@ class ArmFollow:
                 eff=arm_jnt_eff if arm_jnt_eff is not None else np.zeros(ARM_DOF),
                 kp= Kp if Kp is not None else self.__arm_slave_kp.copy(),
                 kd=self.__arm_slave_kd.copy(),
-                lim_vel=np.ones_like(arm_jnt_pos) * 10,
-                lim_acc=np.ones_like(arm_jnt_pos) * 10,
+                lim_vel=np.ones_like(arm_jnt_pos) * 0,
+                lim_acc=np.ones_like(arm_jnt_pos) * 0,
             ),
             pose=self.__default_pose(),
         )
@@ -235,7 +236,6 @@ class ArmFollow:
     ##############################################################
     def __teleop_process(self):
         prev_q = False
-        prev_s = False
         while self.__is_running():
             time.sleep(self.__teleop_dt)
 
@@ -249,75 +249,144 @@ class ArmFollow:
                 self.__stop_event.set()
             prev_q = curr_q
 
-            curr_s = bool(keys.key_s)
-            if curr_s and not prev_s:
-                self.__start_event.set()
-            prev_s = curr_s
-
-    def __move_to_stable(self, phase: str, is_start: bool = True):
+    def __move_to_start(self):
         self.__data_interface.logi(
-            f"[arm_follow]: move to {phase} position")
+            "[arm_follow]: move to start position")
 
-        stable_pos = self.__arm_start_pos if is_start else self.__arm_end_pos
-        duration = 3.5
+        # wait for master/slave to connected; exit the node if no data in 5s
+        master_state = None
+        slave_state = None
+        deadline = time.monotonic() + 5.0
+        while (self.__data_interface.ok()
+                and time.monotonic() < deadline
+                and (master_state is None or slave_state is None)):
+            if master_state is None:
+                master_state = self.__data_interface.get_master_manip_state(
+                    latest=True)
+            if slave_state is None:
+                slave_state = self.__data_interface.get_slave_manip_state(
+                    latest=True)
 
-        # master (hello, read-only): only wait until it is connected
-        master_state = self.__data_interface.get_master_manip_state(
-            latest=True)
-        while master_state is None and self.__data_interface.ok():
+            missing = []
+            if master_state is None:
+                missing.append("master")
+            if slave_state is None:
+                missing.append("slave")
             self.__data_interface.logw(
-                "waiting for master state...")
+                f"waiting for {'/'.join(missing)} manip state...")
             time.sleep(0.1)
+
+        if master_state is None or slave_state is None:
+            self.__data_interface.loge(
+                "master/slave manip state not ready within 5s, "
+                "exit the node")
+            self.__stop_event.set()
+            return
+
+        # init: the slave slowly comes online onto the master position.
+        self.__data_interface.logw(
+            "keep the master still: the slave will slowly come online "
+            "to the master position")
+
+        master_pos = np.asarray(
+            master_state.manip_state.arm_state.jnt.position,
+            dtype=np.float64)
+        slave_pos = np.asarray(
+            slave_state.manip_state.arm_state.jnt.position,
+            dtype=np.float64)
+
+        # slow online: the slave commanded position starts at its current
+        slave_target = slave_pos.copy()
+        
+        tau = 0.8    # exponential time constant of the online move [s]
+        snap_tol = 0.25   # within this error [rad]: snap directly to the master
+        conv_tol = 0.05  # online-to-master convergence tolerance [rad]
+
+        prev_time = time.monotonic()
+        while self.__data_interface.ok():
+            now = time.monotonic()
+            dt = max(now - prev_time, 0.0)
+            prev_time = now
+
+            # keep re-reading the master position while going online
             master_state = self.__data_interface.get_master_manip_state(
                 latest=True)
+            if master_state is not None:
+                master_pos = np.asarray(
+                    master_state.manip_state.arm_state.jnt.position,
+                    dtype=np.float64)
 
-        # slave: wait and then move to stable position
+            err = master_pos - slave_target
+            err_norm = np.linalg.norm(err)
+            
+            gain = 1.0 - np.exp(-dt / tau)
+            if err_norm <= snap_tol:
+                gain = 1.0  
+                
+            self.__data_interface.logd(f"dt: {dt:.2f}, gain: {gain:.4f}")
+            
+            slave_target = slave_target + err * gain
+
+            self.__data_interface.pub_slave_manip_ctrl(
+                self.__build_stable_ctrl(jnt_pos=slave_target))
+
+            # done: slave online to the master, or timeout
+            if err_norm <= conv_tol:
+                self.__data_interface.logi(
+                    "slave online to the master position")
+                break
+
+
+            self.__data_interface.sleep()
+
+        self.__data_interface.logi(
+            "keep the master still and press 's' to start the follow")
+
+    def __move_to_exit(self):
+        self.__data_interface.logi(
+            "[arm_follow]: move to exit position")
+
         slave_state = self.__data_interface.get_slave_manip_state(
             latest=True)
-        while slave_state is None and self.__data_interface.ok():
-            self.__data_interface.logw(
-                "waiting for slave state...")
-            time.sleep(0.1)
-            slave_state = self.__data_interface.get_slave_manip_state(
-                latest=True)
+        if slave_state is None:
+            return
 
-        # only the slave is commanded to the stable position (master is
-        # read-only, the operator holds it by hand)
-        if slave_state is not None:
-            slave_jnt = np.asarray(
-                slave_state.manip_state.arm_state.jnt.position,
-                dtype=np.float64)
-            slave_planner = Move2TargetPlanner(
-                slave_jnt, stable_pos, duration)
-            slave_planner.start_trajectory()
+        # command the slave back to the stable end position
+        stable_pos = self.__arm_end_pos
+        duration = 3.5
+        slave_jnt = np.asarray(
+            slave_state.manip_state.arm_state.jnt.position,
+            dtype=np.float64)
+        slave_planner = Move2TargetPlanner(
+            slave_jnt, stable_pos, duration)
+        slave_planner.start_trajectory()
 
-            while self.__data_interface.ok():
-                slave_target, slave_done = slave_planner.get_target_position()
-                if slave_done:
-                    break
-                if slave_target is not None: 
-                    self.__data_interface.pub_slave_manip_ctrl(
-                        self.__build_stable_ctrl(jnt_pos=slave_target))
-                self.__data_interface.sleep()
+        while self.__data_interface.ok():
+            slave_target, slave_done = slave_planner.get_target_position()
+            if slave_done:
+                break
+            if slave_target is not None:
+                self.__data_interface.pub_slave_manip_ctrl(
+                    self.__build_stable_ctrl(jnt_pos=slave_target))
+            self.__data_interface.sleep()
 
     def __init_process(self):
         try:
-            self.__move_to_stable("init", is_start=True)
+            self.__move_to_start()
         except Exception:
             traceback.print_exc()
 
     def __exit_process(self):
         try:
-            self.__move_to_stable("exit", is_start=False)
+            self.__move_to_exit()
         except Exception:
             traceback.print_exc()
 
     def __work_process(self):
-        self.__data_interface.logi("press 's' to start follow control")
         self.__data_interface.logi("press 'q' to exit follow control")
 
-        while self.__is_running() and not self.__start_event.is_set():
-            self.__data_interface.sleep()
+        # while self.__is_running() and not self.__start_event.is_set():
+        #     self.__data_interface.sleep()
 
         self.__data_interface.logi("start follow control")
 
@@ -336,7 +405,10 @@ class ArmFollow:
         grip_slave_pos = None
         grip_slave_vel = None
         grip_slave_target = None
-
+        
+        # This dt must be aligned with the hello driver's update rate.
+        dt = 1 / 500
+        
         while self.__is_running():
             master_state = self.__data_interface.get_master_manip_state(latest=True)
             slave_state = self.__data_interface.get_slave_manip_state(latest=True)
@@ -378,24 +450,9 @@ class ArmFollow:
                         K_max = self.__kmax, 
                         alpha = self.__error_proportional_gain
                     )
+                    slave_target_pos = master_pos + dt * master_vel
                     
-                    self.__data_interface.logd(f"dynamic Kp: {Kp}")
-                    
-                    Tau: np.ndarray = self.__compute_torque(
-                        e=err, # type: ignore
-                        dq_t=master_vel,
-                        dq_s=slave_vel,
-                        K_p=Kp,
-                        K_d=self.__arm_slave_kd,
-                        eta=self.__velocity_coupling_coeff
-                    )
-                    
-                    err_max = np.max(np.abs(err))
-                    err_limit=0.05
-                    if err_max < err_limit:
-                        slave_target_pos = slave_pos
-                    else:
-                        slave_target_pos = slave_pos + (err / err_max)  * err_limit
+                    # self.__data_interface.logd(f"master_pos: {master_pos}")
                 
                 except Exception:
                     traceback.print_exc()
@@ -409,8 +466,7 @@ class ArmFollow:
                     self.__build_follow_ctrl(
                         Kp=Kp,
                         arm_jnt_pos=slave_target_pos,
-                        arm_jnt_vel=master_vel,
-                        arm_jnt_eff=Tau,
+                        arm_jnt_vel=self.__velocity_coupling_coeff*master_vel ,
                         grip_jnt_pos=grip_slave_target,
                         grip_jnt_vel=None,
                     ))
@@ -424,33 +480,26 @@ class ArmFollow:
         K_max: float, 
         alpha: float
     ) -> np.ndarray:        
-        """动态比例增益"""
-        return K_min + (K_max - K_min) * np.tanh(alpha * np.abs(e))
-    
-    def __compute_torque(
-        self,
-        e: np.ndarray,
-        dq_t: np.ndarray,
-        dq_s: np.ndarray,
-        K_p: np.ndarray,
-        K_d: np.ndarray,
-        eta: float
-    ) -> np.ndarray:
         """
-        计算输出力矩 τ
-        
-        参数:
-            e: 位置误差
-            dq_t, dq_s: 主端、从端速度
-            K_p: 比例增益
-            K_d: 微分增益
-            eta: 速度耦合系数
+        Compute dynamic proportional gain with sigmoid saturation.
+
+        The gain is computed using a hyperbolic tangent function:
+            K_p = K_min + (K_max - K_min) * tanh(alpha * |e|)
+
+        This provides smooth transitions between K_min (small errors) and 
+        K_max (large errors), avoiding abrupt gain changes.
+
+        Args:
+            e (np.ndarray): Position error vector
+            K_min (float): Minimum proportional gain (for small errors)
+            K_max (float): Maximum proportional gain (for large errors)
+            alpha (float): Sensitivity coefficient controlling transition sharpness
+
+        Returns:
+            np.ndarray: Dynamic proportional gain vector, same shape as e
+
         """
-        e = e              # 位置误差
-        K_p = K_p
-        tau = K_p * e - K_d * dq_s + eta * K_d * dq_t
-        return tau
-    
+        return K_min + (K_max - K_min) * np.tanh(alpha * np.fabs(e))
     
 def main():
     arm_follow = ArmFollow()
