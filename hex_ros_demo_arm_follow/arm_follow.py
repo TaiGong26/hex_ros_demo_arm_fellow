@@ -60,8 +60,6 @@ class ArmFollow:
                                     dtype=np.float64)
 
         ### control presets
-        self.__arm_start_pos = np.asarray(
-            self.__follow_param["arm_start_pos"], dtype=np.float64)
         self.__arm_end_pos = np.asarray(self.__follow_param["arm_end_pos"],
                                         dtype=np.float64)
         self.__grip_stable_pos = np.asarray(
@@ -82,10 +80,6 @@ class ArmFollow:
             self.__follow_param["grip_slave_kp"], dtype=np.float64)
         self.__grip_slave_kd = np.asarray(
             self.__follow_param["grip_slave_kd"], dtype=np.float64)
-        self.__arm_slave_clip = np.asarray(
-            self.__follow_param["arm_slave_clip"], dtype=np.float64)
-        self.__grip_slave_clip = np.asarray(
-            self.__follow_param["grip_slave_clip"], dtype=np.float64)
 
         ### follow control coefficients
         # grip trigger scale: master handle trigger -> slave grip displacement
@@ -343,13 +337,11 @@ class ArmFollow:
             self.__data_interface.pub_slave_manip_ctrl(
                 self.__build_stable_ctrl(jnt_pos=slave_target))
 
-            # done: slave online to the master, or timeout
+            # done: slave online to the master
             if err_norm <= conv_tol:
                 self.__data_interface.logi(
                     "slave online to the master position")
                 break
-
-
             self.__data_interface.sleep()
 
         self.__data_interface.logi(

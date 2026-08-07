@@ -71,13 +71,7 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('rate_teleop', 100.0)
         self.__node.declare_parameter('model_urdf', "")
         self.__node.declare_parameter('model_frame_id', "base_link")
-        self.__node.declare_parameter(
-            'pose_end_in_flange',
-            [0.187, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        )
         self.__node.declare_parameter('gravity', [0.0, 0.0, -9.81])
-        self.__node.declare_parameter('arm_start_pos',
-                                      [0.0, -1.5, 3.0, 0.07, 0.0, 0.0])
         self.__node.declare_parameter('arm_end_pos',
                                       [0.0, -1.5, 3.0, 0.07, 0.0, 0.0])
         self.__node.declare_parameter('grip_stable_pos', [0.5])
@@ -91,18 +85,11 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('arm_slave_kd', [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_slave_kp', [10.0])
         self.__node.declare_parameter('grip_slave_kd', [0.5])
-        self.__node.declare_parameter('arm_slave_deadzone',
-                                      [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        self.__node.declare_parameter('arm_slave_clip',
-                                      [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
-        self.__node.declare_parameter('grip_slave_deadzone', [0.01])
-        self.__node.declare_parameter('grip_slave_clip', [0.3])
         self.__node.declare_parameter('grip_trigger_scale', 1.0)
         self.__node.declare_parameter('velocity_coupling_coeff', 1.0)
         self.__node.declare_parameter('error_proportional_gain', 1.0)
         self.__node.declare_parameter('kmin', 10.0)
         self.__node.declare_parameter('kmax', 200.0)
-        self.__node.declare_parameter('extra_mass', 0.0)
 
         self._rate_param.update({
             "teleop":
@@ -113,14 +100,10 @@ class DataInterface(InterfaceBase):
             self.__node.get_parameter('model_urdf').value,
             "frame_id":
             self.__node.get_parameter('model_frame_id').value,
-            "pose_end_in_flange":
-            list(self.__node.get_parameter('pose_end_in_flange').value),
         }
         self._follow_param = {
             "gravity":
             list(self.__node.get_parameter('gravity').value),
-            "arm_start_pos":
-            list(self.__node.get_parameter('arm_start_pos').value),
             "arm_end_pos":
             list(self.__node.get_parameter('arm_end_pos').value),
             "grip_stable_pos":
@@ -141,14 +124,6 @@ class DataInterface(InterfaceBase):
             list(self.__node.get_parameter('grip_slave_kp').value),
             "grip_slave_kd":
             list(self.__node.get_parameter('grip_slave_kd').value),
-            "arm_slave_deadzone":
-            list(self.__node.get_parameter('arm_slave_deadzone').value),
-            "arm_slave_clip":
-            list(self.__node.get_parameter('arm_slave_clip').value),
-            "grip_slave_deadzone":
-            list(self.__node.get_parameter('grip_slave_deadzone').value),
-            "grip_slave_clip":
-            list(self.__node.get_parameter('grip_slave_clip').value),
             "grip_trigger_scale":
             float(self.__node.get_parameter('grip_trigger_scale').value),
             "velocity_coupling_coeff":
@@ -159,8 +134,6 @@ class DataInterface(InterfaceBase):
             float(self.__node.get_parameter('kmin').value),
             "kmax":
             float(self.__node.get_parameter('kmax').value),
-            "extra_mass":
-            float(self.__node.get_parameter('extra_mass').value),
         }
 
         ### publisher

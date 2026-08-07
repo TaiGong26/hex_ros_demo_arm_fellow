@@ -70,18 +70,10 @@ class DataInterface(InterfaceBase):
             rospy.get_param('~model_urdf', ""),
             "frame_id":
             rospy.get_param('~model_frame_id', "base_link"),
-            "pose_end_in_flange":
-            list(
-                rospy.get_param('~pose_end_in_flange',
-                                [0.187, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])),
         }
         self._follow_param = {
             "gravity":
             list(rospy.get_param('~gravity', [0.0, 0.0, -9.81])),
-            "arm_start_pos":
-            list(
-                rospy.get_param('~arm_start_pos',
-                                [0.0, -1.5, 3.0, 0.07, 0.0, 0.0])),
             "arm_end_pos":
             list(
                 rospy.get_param('~arm_end_pos',
@@ -110,18 +102,6 @@ class DataInterface(InterfaceBase):
             list(rospy.get_param('~grip_slave_kp', [10.0])),
             "grip_slave_kd":
             list(rospy.get_param('~grip_slave_kd', [0.5])),
-            "arm_slave_deadzone":
-            list(
-                rospy.get_param('~arm_slave_deadzone',
-                                [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])),
-            "arm_slave_clip":
-            list(
-                rospy.get_param('~arm_slave_clip',
-                                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
-            "grip_slave_deadzone":
-            list(rospy.get_param('~grip_slave_deadzone', [0.01])),
-            "grip_slave_clip":
-            list(rospy.get_param('~grip_slave_clip', [0.3])),
             "grip_trigger_scale":
             float(rospy.get_param('~grip_trigger_scale', 1.0)),
             "velocity_coupling_coeff":
@@ -132,8 +112,6 @@ class DataInterface(InterfaceBase):
             float(rospy.get_param('~kmin', 10.0)),
             "kmax":
             float(rospy.get_param('~kmax', 200.0)),
-            "extra_mass":
-            float(rospy.get_param('~extra_mass', 0.0)),
         }
 
         ### publisher
