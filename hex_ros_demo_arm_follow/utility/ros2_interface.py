@@ -88,8 +88,10 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('grip_trigger_scale', 1.0)
         self.__node.declare_parameter('velocity_coupling_coeff', 1.0)
         self.__node.declare_parameter('error_proportional_gain', 1.0)
-        self.__node.declare_parameter('kmin', 10.0)
-        self.__node.declare_parameter('kmax', 200.0)
+        self.__node.declare_parameter('arm_kmin', 10.0)
+        self.__node.declare_parameter('arm_kmax', 200.0)
+        self.__node.declare_parameter('grip_kmin', 10.0)
+        self.__node.declare_parameter('grip_kmax', 200.0)
 
         self._rate_param.update({
             "teleop":
@@ -130,10 +132,14 @@ class DataInterface(InterfaceBase):
             float(self.__node.get_parameter('velocity_coupling_coeff').value),
             "error_proportional_gain":
             float(self.__node.get_parameter('error_proportional_gain').value),
-            "kmin":
-            float(self.__node.get_parameter('kmin').value),
-            "kmax":
-            float(self.__node.get_parameter('kmax').value),
+            "arm_kmin":
+            float(self.__node.get_parameter('arm_kmin').value),
+            "arm_kmax":
+            float(self.__node.get_parameter('arm_kmax').value),
+            "grip_kmin":
+            float(self.__node.get_parameter('grip_kmin').value),
+            "grip_kmax":
+            float(self.__node.get_parameter('grip_kmax').value),
         }
 
         ### publisher

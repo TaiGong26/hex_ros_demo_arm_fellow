@@ -27,14 +27,17 @@ arm_follow:
     arm_slave_kp:  [200.0, 200.0, 250.0, 200.0, 100.0, 100.0]
     arm_slave_kd: [5.0, 5.0, 5.0, 5.0, 2.0, 2.0]
     grip_slave_kp: [200.0]
-    grip_slave_kd: [10.0]
+    grip_slave_kd: [5.0]
 
     # grip trigger scale: master handle trigger -> slave grip displacement scale
-    grip_trigger_scale: 1.0
+    grip_trigger_scale: 0.5
     # velocity coupling coefficient (eta): master velocity term in slave torque
     velocity_coupling_coeff: 1.0
     # error proportional gain (alpha): scales error e, dynamically adjusts slave kp
     error_proportional_gain: 1.0
-    # kp clamp bounds (Kmin / Kmax): dynamically adjusted kp stays within [kmin, kmax]
-    kmin: 10.0
-    kmax: 200.0
+    # arm kp clamp bounds (arm_kmin / arm_kmax): dynamically adjusted arm kp stays within [arm_kmin, arm_kmax]
+    arm_kmin: 10.0
+    arm_kmax: 200.0
+    # grip kp clamp bounds (grip_kmin / grip_kmax): dynamically adjusted grip kp stays within [grip_kmin, grip_kmax]
+    grip_kmin: 10.0
+    grip_kmax: 200.0

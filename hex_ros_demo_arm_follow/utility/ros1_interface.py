@@ -108,10 +108,14 @@ class DataInterface(InterfaceBase):
             float(rospy.get_param('~velocity_coupling_coeff', 1.0)),
             "error_proportional_gain":
             float(rospy.get_param('~error_proportional_gain', 1.0)),
-            "kmin":
-            float(rospy.get_param('~kmin', 10.0)),
-            "kmax":
-            float(rospy.get_param('~kmax', 200.0)),
+            "arm_kmin":
+            float(rospy.get_param('~arm_kmin', 10.0)),
+            "arm_kmax":
+            float(rospy.get_param('~arm_kmax', 200.0)),
+            "grip_kmin":
+            float(rospy.get_param('~grip_kmin', 10.0)),
+            "grip_kmax":
+            float(rospy.get_param('~grip_kmax', 200.0)),
         }
 
         ### publisher
