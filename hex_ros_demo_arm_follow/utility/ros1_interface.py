@@ -102,8 +102,8 @@ class DataInterface(InterfaceBase):
             list(rospy.get_param('~grip_slave_kp', [10.0])),
             "grip_slave_kd":
             list(rospy.get_param('~grip_slave_kd', [0.5])),
-            "grip_trigger_scale":
-            float(rospy.get_param('~grip_trigger_scale', 1.0)),
+            "robot_grip_type":
+            str(rospy.get_param('~robot_grip_type', 'gr100')),
             "velocity_coupling_coeff":
             float(rospy.get_param('~velocity_coupling_coeff', 1.0)),
             "error_proportional_gain":

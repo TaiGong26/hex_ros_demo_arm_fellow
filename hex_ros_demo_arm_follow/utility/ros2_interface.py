@@ -85,7 +85,7 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('arm_slave_kd', [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_slave_kp', [10.0])
         self.__node.declare_parameter('grip_slave_kd', [0.5])
-        self.__node.declare_parameter('grip_trigger_scale', 1.0)
+        self.__node.declare_parameter('robot_grip_type', 'gr100')
         self.__node.declare_parameter('velocity_coupling_coeff', 1.0)
         self.__node.declare_parameter('error_proportional_gain', 1.0)
         self.__node.declare_parameter('arm_kmin', 10.0)
@@ -126,8 +126,8 @@ class DataInterface(InterfaceBase):
             list(self.__node.get_parameter('grip_slave_kp').value),
             "grip_slave_kd":
             list(self.__node.get_parameter('grip_slave_kd').value),
-            "grip_trigger_scale":
-            float(self.__node.get_parameter('grip_trigger_scale').value),
+            "robot_grip_type":
+            str(self.__node.get_parameter('robot_grip_type').value),
             "velocity_coupling_coeff":
             float(self.__node.get_parameter('velocity_coupling_coeff').value),
             "error_proportional_gain":

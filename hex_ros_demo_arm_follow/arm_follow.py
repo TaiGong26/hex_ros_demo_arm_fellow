@@ -38,6 +38,15 @@ from TrajectoryController import Move2TargetPlanner
 ARM_DOF = 6
 GRIP_DOF = 1
 
+# Slave grip (hand) position limits [min, max] in rad per hand type.
+# Mirrors hex_driver_robot/device/hands.py `_LIMITS`
+# (SdtHandGp100 / SdtHandGp80G1 / SdtHandGr100).
+_GRIP_LIMITS: dict[str, tuple[float, float]] = {
+    "gp100": (0.0, 1.335),
+    "gp80":  (0.0, 5.65),
+    "gr100": (0.0, 0.69),
+}
+
 LED_YELLOW = (1.0, 1.0, 0.0)
 LED_GREEN = (0.0, 1.0, 0.0)
 
@@ -82,11 +91,7 @@ class ArmFollow:
             self.__follow_param["grip_slave_kd"], dtype=np.float64)
 
         ### follow control coefficients
-        # grip trigger scale: master handle trigger -> slave grip displacement
-        self.__grip_trigger_scale = float(
-            self.__follow_param["grip_trigger_scale"])
         # velocity coupling coefficient (eta): master velocity term in slave torque
-        # T = Kp(q_t - q_s) - Kd q_s(vel) + eta Kd q_t(vel)
         self.__velocity_coupling_coeff = float(
             self.__follow_param["velocity_coupling_coeff"])
         # error proportional gain (alpha): scales error e, dynamically adjusts kp
@@ -98,12 +103,31 @@ class ArmFollow:
         self.__arm_kmax = float(self.__follow_param["arm_kmax"])
         self.__grip_kmin = float(self.__follow_param["grip_kmin"])
         self.__grip_kmax = float(self.__follow_param["grip_kmax"])
+        # slave grip (hand) type -> position limits [min, max] rad
+        grip_type = str(self.__follow_param["robot_grip_type"])
         self.__data_interface.logi(
-            f"follow coeffs: grip_trigger_scale={self.__grip_trigger_scale}, "
-            f"velocity_coupling_coeff={self.__velocity_coupling_coeff}, "
+            f"follow coeffs: velocity_coupling_coeff={self.__velocity_coupling_coeff}, "
             f"error_proportional_gain={self.__error_proportional_gain}, "
             f"arm_kmin={self.__arm_kmin}, arm_kmax={self.__arm_kmax}, "
             f"grip_kmin={self.__grip_kmin}, grip_kmax={self.__grip_kmax}")
+
+        ### slave grip (hand) limits
+        self.__grip_limit_min: Optional[float] = None
+        self.__grip_limit_max: Optional[float] = None
+        self.__grip_limit_mid: Optional[float] = None
+        grip_limits = _GRIP_LIMITS.get(grip_type)
+        if grip_limits is not None:
+            self.__grip_limit_min, self.__grip_limit_max = grip_limits
+            self.__grip_limit_mid = 0.5 * (self.__grip_limit_min + self.__grip_limit_max)
+            
+            self.__grip_stable_pos = np.array([self.__grip_limit_mid])
+            self.__data_interface.logi(
+                f"grip type {grip_type}: limits "
+                f"[{self.__grip_limit_min}, {self.__grip_limit_max}] rad, "
+                f"mid {self.__grip_limit_mid}")
+        else:
+            self.__data_interface.logw(
+                f"unknown grip type '{grip_type}', grip follow disabled")
 
         ### threads
         self.__stop_event = threading.Event()
@@ -289,8 +313,6 @@ class ArmFollow:
             self.__stop_event.set()
             return
 
-        # top-of-function publish can be dropped by the startup DDS discovery
-        # race; both manip_states are in now, graph is warm — re-publish once
         self.__set_master_led(*LED_YELLOW)
 
         # init: the slave slowly comes online onto the master position.
@@ -423,20 +445,12 @@ class ArmFollow:
         dt = 1 / 500
         
         # Joy state
-        joy_trigger_baseline = None
         joy_state = None
-        
+
         while self.__is_running():
             master_state = self.__data_interface.get_master_manip_state(latest=True)
             slave_state = self.__data_interface.get_slave_manip_state(latest=True)
             joy_state = self.__data_interface.get_joy_state(latest=True)
-
-            # grip trigger baseline calibration (first joy frame)
-            if (joy_trigger_baseline is None
-                    and joy_state is not None):
-                joy_trigger_baseline = joy_state.trigger
-                self.__data_interface.logi(
-                    f"grip trigger baseline: {joy_trigger_baseline}")
 
             ## master
             if master_state is not None:
@@ -479,23 +493,34 @@ class ArmFollow:
 
                 ### slave grip: master trigger -> joint target position
                 if (joy_state is not None
-                        and joy_trigger_baseline is not None):
-                    trigger_norm = max(0.0, joy_state.trigger - joy_trigger_baseline)
-                    
-                    grip_slave_target = np.ones_like(self.__grip_stable_pos) * (trigger_norm * self.__grip_trigger_scale)
+                        and self.__grip_limit_min is not None
+                        and self.__grip_limit_max is not None
+                        and self.__grip_limit_mid is not None):
+                    # trigger spans [-1,1] -> normalized [0,1]:
+                    # -1 -> limit min, 0 -> limit mid, +1 -> limit max.
+                    # Hand-type limits all start at min=0, so the normalized
+                    # input scales the [min, max] span directly.
+                    trigger_norm = (joy_state.trigger + 1.0) / 2.0  # [-1,1] → [0,1]
+                    grip_slave_target = np.ones_like(
+                        self.__grip_stable_pos) * np.clip(
+                            trigger_norm
+                            * (self.__grip_limit_max - self.__grip_limit_min),
+                            self.__grip_limit_min, self.__grip_limit_max)
 
                 grip_Kp = None
                 if grip_slave_target is not None and grip_slave_pos is not None:
-                    grip_err = np.asarray(
-                        [grip_slave_target - float(grip_slave_pos[0])],
-                        dtype=np.float64)
+                    # grip_slave_target / grip_slave_pos are both 1-D (1,)
+                    grip_err = grip_slave_target - grip_slave_pos
                     grip_Kp = self.__dynamic_kp(
                         e=grip_err,
                         K_min=self.__grip_kmin,
                         K_max=self.__grip_kmax,
                         alpha=self.__error_proportional_gain,
                     )
-
+                
+                self.__data_interface.logd(
+                    f"grip target pos: {grip_slave_target}, kp: {grip_Kp} grip pos: {grip_slave_pos}")
+                
                 # master (hello) is read-only: only the slave follow ctrl
                 self.__data_interface.pub_slave_manip_ctrl(
                     self.__build_follow_ctrl(

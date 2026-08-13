@@ -11,7 +11,9 @@ model_frame_id: "base_link"
 # gravity vector [m/s^2]
 gravity: [0.0, 0.0, -9.81]
 
-# stable (init / exit) joint position
+# stable exit joint position
+# grip_stable_pos is overridden to the grip limit midpoint when a known
+# grip type is configured; this value is only the no-grip / unknown-type fallback
 arm_end_pos: [0.0, -1.5, 3.0, 0.07, 0.0, 0.0]
 grip_stable_pos: [0.5]
 
@@ -27,8 +29,8 @@ arm_slave_kd: [5.0, 5.0, 5.0, 5.0, 2.0, 2.0]
 grip_slave_kp: [200.0]
 grip_slave_kd: [10.0]
 
-# grip trigger scale: master handle trigger -> slave grip displacement scale
-grip_trigger_scale: 0.5
+# slave grip (hand) type: gp100 / gp80 / gr100 / empty (no grip)
+robot_grip_type: gr100
 # velocity coupling coefficient (eta): master velocity term in slave torque
 # T = Kp(q_t - q_s) - Kd q_s(vel) + eta Kd q_t(vel)
 velocity_coupling_coeff: 1.0
