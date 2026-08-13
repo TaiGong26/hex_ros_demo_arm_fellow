@@ -62,7 +62,7 @@ class DataInterface(InterfaceBase):
         rclpy.init()
         self.__node = rclpy.node.Node(name)
         self.__logger = self.__node.get_logger()
-        self.__logger.set_level(LoggingSeverity.DEBUG)
+        # self.__logger.set_level(LoggingSeverity.DEBUG)
         self.__node.declare_parameter('rate_ros', 500.0)
         self._rate_param["ros"] = self.__node.get_parameter('rate_ros').value
         self.__rate = self.__node.create_rate(self._rate_param["ros"])

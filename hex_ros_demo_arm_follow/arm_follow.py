@@ -12,11 +12,7 @@ import time
 import traceback
 import threading
 from typing import Optional, Tuple
-
 import numpy as np
-
-scrpit_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(scrpit_path)
 from utility import DataInterface
 
 from hex_util_msg.dataclass.dataclass_base import (
@@ -131,7 +127,6 @@ class ArmFollow:
 
         ### threads
         self.__stop_event = threading.Event()
-        self.__start_event = threading.Event()
         self.__teleop_thread = threading.Thread(target=self.__teleop_process)
         self.__teleop_dt = 1.0 / max(float(self.__rate_param["teleop"]), 1.0)
 
@@ -143,7 +138,6 @@ class ArmFollow:
     ##############################################################
     def start(self):
         self.__stop_event.clear()
-        self.__start_event.clear()
         self.__teleop_thread.start()
         self.__init_process()
 
@@ -226,7 +220,6 @@ class ArmFollow:
                 x=float(self.__gravity[0]),
                 y=float(self.__gravity[1]),
                 z=float(self.__gravity[2]),
-                # z=float(0.0),
             ),
             jnt=HexDcBaseJntFull(
                 pos=arm_jnt_pos if arm_jnt_pos is not None else self.__arm_end_pos.copy(),
@@ -354,8 +347,6 @@ class ArmFollow:
             if err_norm <= snap_tol:
                 gain = 1.0  
                 
-            self.__data_interface.logd(f"dt: {dt:.2f}, gain: {gain:.4f}")
-            
             slave_target = slave_target + err * gain
 
             self.__data_interface.pub_slave_manip_ctrl(
@@ -367,9 +358,6 @@ class ArmFollow:
                     "slave online to the master position")
                 break
             self.__data_interface.sleep()
-
-        self.__data_interface.logi(
-            "keep the master still and press 's' to start the follow")
 
     def __move_to_exit(self):
         self.__data_interface.logi(
@@ -435,7 +423,6 @@ class ArmFollow:
 
         # grip state variables (master hello has no grip motor -> slave only)
         grip_slave_pos = None
-        grip_slave_vel = None
         grip_slave_target = None
         
         # This dt must be aligned with the hello driver's update rate.
@@ -477,7 +464,7 @@ class ArmFollow:
                     
                     err = (master_pos - slave_pos)
                     Kp = self.__dynamic_kp(
-                        e = err,  # type: ignore
+                        e = err,  
                         K_min = self.__arm_kmin,
                         K_max = self.__arm_kmax,
                         alpha = self.__error_proportional_gain
@@ -514,9 +501,6 @@ class ArmFollow:
                         K_max=self.__grip_kmax,
                         alpha=self.__error_proportional_gain,
                     )
-                
-                self.__data_interface.logd(
-                    f"grip target pos: {grip_slave_target}, kp: {grip_Kp} grip pos: {grip_slave_pos}")
                 
                 # master (hello) is read-only: only the slave follow ctrl
                 self.__data_interface.pub_slave_manip_ctrl(
