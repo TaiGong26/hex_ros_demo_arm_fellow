@@ -417,9 +417,6 @@ class ArmFollow:
     def __work_process(self):
         self.__data_interface.logi("press 'q' to exit follow control")
 
-        # while self.__is_running() and not self.__start_event.is_set():
-        #     self.__data_interface.sleep()
-
         self.__data_interface.logi("start follow control")
 
         self.__follow()
