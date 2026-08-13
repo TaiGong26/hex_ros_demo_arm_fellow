@@ -6,11 +6,16 @@
 <!--#######################################-->
 
 <launch>
+    <!-- grip type (default = yaml value; real launch passes it through) -->
+    <arg name="robot_grip_type" default="gr100"/>
+
     <node name="arm_follow" pkg="hex_ros_demo_arm_follow" type="arm_follow.py" output="screen">
         <!-- load default parameters -->
         <rosparam file="$(find hex_ros_demo_arm_follow)/config/ros1/arm_follow.yaml"/>
         <!-- robot model used for dynamics -->
         <param name="model_urdf" value="$(find hex_ros_urdf_archer_y6)/urdf/gr100_comp.urdf"/>
+        <!-- grip type override -->
+        <param name="robot_grip_type" value="$(arg robot_grip_type)"/>
         <!-- subscribe -->
         <remap from="master/manip_state" to="master/manip_state"/>
         <remap from="master/joy_state" to="master/joy_state"/>
