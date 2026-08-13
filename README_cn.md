@@ -116,7 +116,7 @@ hex_ros_demo_arm_follow/
 ```shell
 pip3 install 'hex-util-msg>=0.1.0'
 pip3 install 'hex-util-ros>=0.1.0a4'
-pip3 install 'hex-driver-robot>=0.2.0'
+pip3 install 'hex-driver-robot>=0.1.0'
 ```
 
 ### ROS 包
