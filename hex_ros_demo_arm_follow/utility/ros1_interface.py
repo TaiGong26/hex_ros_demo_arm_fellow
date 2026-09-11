@@ -19,8 +19,10 @@ from hex_ros_msgs.msg import (
     HexRosRoboManipCtrl,
     HexRosRoboManipCtrlStamped,
     HexRosRoboManipStateStamped,
+    HexRosTeleopHandleStateStamped,
     HexRosTeleopKeyboardStateStamped,
 )
+from std_msgs.msg import ColorRGBA
 
 from hex_util_msg.dataclass.dataclass_base import (
     HexDcBaseHeader,
@@ -39,7 +41,10 @@ from hex_util_msg.dataclass.dataclass_robo import (
     HexDcRoboManipState,
     HexDcRoboManipStateStamped,
 )
-from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopKeyboardState
+from hex_util_msg.dataclass.dataclass_teleop import (
+    HexDcTeleopHandleState,
+    HexDcTeleopKeyboardState,
+)
 
 from .interface_base import InterfaceBase
 
@@ -65,18 +70,10 @@ class DataInterface(InterfaceBase):
             rospy.get_param('~model_urdf', ""),
             "frame_id":
             rospy.get_param('~model_frame_id', "base_link"),
-            "pose_end_in_flange":
-            list(
-                rospy.get_param('~pose_end_in_flange',
-                                [0.187, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])),
         }
-        self._force_feedback_param = {
+        self._follow_param = {
             "gravity":
             list(rospy.get_param('~gravity', [0.0, 0.0, -9.81])),
-            "arm_start_pos":
-            list(
-                rospy.get_param('~arm_start_pos',
-                                [0.0, -1.5, 3.0, 0.07, 0.0, 0.0])),
             "arm_end_pos":
             list(
                 rospy.get_param('~arm_end_pos',
@@ -93,18 +90,6 @@ class DataInterface(InterfaceBase):
             list(rospy.get_param('~grip_stable_kp', [10.0])),
             "grip_stable_kd":
             list(rospy.get_param('~grip_stable_kd', [0.5])),
-            "arm_master_kp":
-            list(
-                rospy.get_param('~arm_master_kp',
-                                [0.0, 0.0, 0.0, 150.0, 100.0, 100.0])),
-            "arm_master_kd":
-            list(
-                rospy.get_param('~arm_master_kd',
-                                [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])),
-            "grip_master_kp":
-            list(rospy.get_param('~grip_master_kp', [10.0])),
-            "grip_master_kd":
-            list(rospy.get_param('~grip_master_kd', [0.5])),
             "arm_slave_kp":
             list(
                 rospy.get_param('~arm_slave_kp',
@@ -117,32 +102,20 @@ class DataInterface(InterfaceBase):
             list(rospy.get_param('~grip_slave_kp', [10.0])),
             "grip_slave_kd":
             list(rospy.get_param('~grip_slave_kd', [0.5])),
-            "arm_master_deadzone":
-            list(
-                rospy.get_param('~arm_master_deadzone',
-                                [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])),
-            "arm_master_clip":
-            list(
-                rospy.get_param('~arm_master_clip',
-                                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
-            "arm_slave_deadzone":
-            list(
-                rospy.get_param('~arm_slave_deadzone',
-                                [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])),
-            "arm_slave_clip":
-            list(
-                rospy.get_param('~arm_slave_clip',
-                                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
-            "grip_master_deadzone":
-            list(rospy.get_param('~grip_master_deadzone', [0.01])),
-            "grip_master_clip":
-            list(rospy.get_param('~grip_master_clip', [0.5])),
-            "grip_slave_deadzone":
-            list(rospy.get_param('~grip_slave_deadzone', [0.01])),
-            "grip_slave_clip":
-            list(rospy.get_param('~grip_slave_clip', [0.3])),
-            "extra_mass":
-            float(rospy.get_param('~extra_mass', 0.0)),
+            "robot_grip_type":
+            str(rospy.get_param('~robot_grip_type', 'gr100')),
+            "velocity_coupling_coeff":
+            float(rospy.get_param('~velocity_coupling_coeff', 1.0)),
+            "error_proportional_gain":
+            float(rospy.get_param('~error_proportional_gain', 1.0)),
+            "arm_kmin":
+            float(rospy.get_param('~arm_kmin', 10.0)),
+            "arm_kmax":
+            float(rospy.get_param('~arm_kmax', 200.0)),
+            "grip_kmin":
+            float(rospy.get_param('~grip_kmin', 10.0)),
+            "grip_kmax":
+            float(rospy.get_param('~grip_kmax', 200.0)),
         }
 
         ### publisher
@@ -155,6 +128,11 @@ class DataInterface(InterfaceBase):
         self.__slave_manip_ctrl_pub = rospy.Publisher(
             'slave/manip_ctrl',
             HexRosRoboManipCtrlStamped,
+            queue_size=10,
+        )
+        self.__master_color_cmd_pub = rospy.Publisher(
+            'master/color_cmd',
+            ColorRGBA,
             queue_size=10,
         )
 
@@ -183,8 +161,14 @@ class DataInterface(InterfaceBase):
             HexRosRoboManipStateStamped,
             self.__slave_manip_state_callback,
         )
+        self.__master_joy_state_sub = rospy.Subscriber(
+            'master/joy_state',
+            HexRosTeleopHandleStateStamped,
+            self.__master_joy_state_callback,
+        )
         self.__master_manip_state_sub
         self.__slave_manip_state_sub
+        self.__master_joy_state_sub
 
         ### finish log
         print(f"#### DataInterface init: {self._name} ####")
@@ -237,6 +221,14 @@ class DataInterface(InterfaceBase):
             grip_ctrl=self.__grip_ctrl_to_msg(out.grip_ctrl),
         )
         self.__slave_manip_ctrl_pub.publish(msg)
+
+    def pub_master_color_cmd(self, r: float, g: float, b: float):
+        msg = ColorRGBA()
+        msg.r = r
+        msg.g = g
+        msg.b = b
+        msg.a = 1.0
+        self.__master_color_cmd_pub.publish(msg)
 
     @staticmethod
     def __jnt_to_msg(jnt) -> HexRosJnt:
@@ -298,6 +290,9 @@ class DataInterface(InterfaceBase):
         self._slave_manip_state_deque.append(
             self.__manip_state_msg_to_dc(msg))
 
+    def __master_joy_state_callback(self, msg: HexRosTeleopHandleStateStamped):
+        self._joy_state_deque.append(self.__joy_state_msg_to_dc(msg))
+
     @staticmethod
     def __keyboard_msg_to_dc(
             msg: HexRosTeleopKeyboardStateStamped) -> HexDcTeleopKeyboardState:
@@ -307,6 +302,20 @@ class DataInterface(InterfaceBase):
             for letter in _LETTERS
         }
         return HexDcTeleopKeyboardState(**kwargs)
+
+    @staticmethod
+    def __joy_state_msg_to_dc(
+            msg: HexRosTeleopHandleStateStamped) -> HexDcTeleopHandleState:
+        hs = msg.handle_state
+        return HexDcTeleopHandleState(
+            trigger=float(hs.trigger),
+            axis_x=float(hs.axis_x),
+            axis_y=float(hs.axis_y),
+            btn_w=bool(hs.btn_w),
+            btn_x=bool(hs.btn_x),
+            btn_y=bool(hs.btn_y),
+            btn_z=bool(hs.btn_z),
+        )
 
     @staticmethod
     def __jnt_state_to_dc(jnt) -> HexDcBaseJntState:

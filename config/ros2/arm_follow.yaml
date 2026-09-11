@@ -1,0 +1,45 @@
+arm_follow:
+  ros__parameters:
+    # master-slave follow work loop rate [hz]
+    rate_ros: 1000.0
+
+    # keyboard monitor rate [hz]
+    rate_teleop: 100.0
+
+    # robot model (urdf used for dynamics, set by launch)
+    model_urdf: ""
+    model_frame_id: "base_link"
+
+    # gravity vector [m/s^2]
+    gravity: [0.0, 0.0, -9.81]
+
+    # stable exit joint position
+    # grip_stable_pos is overridden to the grip limit midpoint when a known
+    # grip type is configured; this value is only the no-grip / unknown-type fallback
+    arm_end_pos: [0.0, -1.5, 3.0, 0.07, 0.0, 0.0]
+    grip_stable_pos: [0.5]
+
+    # gains used while moving to the stable position
+    arm_stable_kp: [200.0, 200.0, 250.0, 150.0, 100.0, 100.0]
+    arm_stable_kd: [5.0, 5.0, 5.0, 5.0, 2.0, 2.0]
+    grip_stable_kp: [10.0]
+    grip_stable_kd: [0.5]
+
+    # gains used for slave follow control
+    arm_slave_kp:  [200.0, 200.0, 250.0, 200.0, 100.0, 100.0]
+    arm_slave_kd: [5.0, 5.0, 5.0, 5.0, 2.0, 2.0]
+    grip_slave_kp: [200.0]
+    grip_slave_kd: [1.0]
+
+    # slave grip (hand) type: gp100 / gp80 / gr100 / empty (no grip)
+    robot_grip_type: gr100
+    # velocity coupling coefficient (eta): master velocity term in slave torque
+    velocity_coupling_coeff: 1.0
+    # error proportional gain (alpha): scales error e, dynamically adjusts slave kp
+    error_proportional_gain: 1.0
+    # arm kp clamp bounds (arm_kmin / arm_kmax): dynamically adjusted arm kp stays within [arm_kmin, arm_kmax]
+    arm_kmin: 10.0
+    arm_kmax: 200.0
+    # grip kp clamp bounds (grip_kmin / grip_kmax): dynamically adjusted grip kp stays within [grip_kmin, grip_kmax]
+    grip_kmin: 10.0
+    grip_kmax: 20.0

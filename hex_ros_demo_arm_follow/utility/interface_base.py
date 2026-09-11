@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 
 from hex_util_msg.dataclass.dataclass_robo import HexDcRoboManipCtrl
 from hex_util_msg.dataclass.dataclass_robo import HexDcRoboManipStateStamped
+from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopHandleState
 from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopKeyboardState
 
 
@@ -21,13 +22,14 @@ class InterfaceBase(ABC):
         ### ros parameters
         self._rate_param = {}
         self._model_param = {}
-        self._force_feedback_param = {}
+        self._follow_param = {}
 
         ### rx msg queues
         self._manip_state_deque = deque(maxlen=100)
         self._master_manip_state_deque = deque(maxlen=100)
         self._slave_manip_state_deque = deque(maxlen=100)
         self._keyboard_deque = deque(maxlen=100)
+        self._joy_state_deque = deque(maxlen=100)
 
         ### name
         self._name = name
@@ -83,8 +85,8 @@ class InterfaceBase(ABC):
     def get_model_param(self) -> dict:
         return self._model_param
 
-    def get_force_feedback_param(self) -> dict:
-        return self._force_feedback_param
+    def get_follow_param(self) -> dict:
+        return self._follow_param
 
     ####################
     ### publishers
@@ -97,6 +99,10 @@ class InterfaceBase(ABC):
     @abstractmethod
     def pub_slave_manip_ctrl(self, out: HexDcRoboManipCtrl):
         raise NotImplementedError("InterfaceBase.pub_slave_manip_ctrl")
+
+    @abstractmethod
+    def pub_master_color_cmd(self, r: float, g: float, b: float):
+        raise NotImplementedError("InterfaceBase.pub_master_color_cmd")
 
     ####################
     ### subscribers
@@ -138,3 +144,10 @@ class InterfaceBase(ABC):
         latest: bool = False,
     ) -> Optional[HexDcTeleopKeyboardState]:
         return self.deque_helper(self._keyboard_deque, latest)
+
+    # master (hello) handle/joy state
+    def get_joy_state(
+        self,
+        latest: bool = False,
+    ) -> Optional[HexDcTeleopHandleState]:
+        return self.deque_helper(self._joy_state_deque, latest)

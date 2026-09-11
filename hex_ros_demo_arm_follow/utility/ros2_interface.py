@@ -20,8 +20,10 @@ from hex_ros_msgs.msg import (
     HexRosRoboManipCtrl,
     HexRosRoboManipCtrlStamped,
     HexRosRoboManipStateStamped,
+    HexRosTeleopHandleStateStamped,
     HexRosTeleopKeyboardStateStamped,
 )
+from std_msgs.msg import ColorRGBA
 
 from hex_util_msg.dataclass.dataclass_base import (
     HexDcBaseHeader,
@@ -40,13 +42,18 @@ from hex_util_msg.dataclass.dataclass_robo import (
     HexDcRoboManipState,
     HexDcRoboManipStateStamped,
 )
-from hex_util_msg.dataclass.dataclass_teleop import HexDcTeleopKeyboardState
+from hex_util_msg.dataclass.dataclass_teleop import (
+    HexDcTeleopHandleState,
+    HexDcTeleopKeyboardState,
+)
 
 from .interface_base import InterfaceBase
 
 _LETTERS = [chr(c) for c in range(ord('a'), ord('z') + 1)]
 
 from rclpy.logging import LoggingSeverity
+
+
 
 class DataInterface(InterfaceBase):
 
@@ -57,7 +64,7 @@ class DataInterface(InterfaceBase):
         rclpy.init()
         self.__node = rclpy.node.Node(name)
         self.__logger = self.__node.get_logger()
-        self.__logger.set_level(LoggingSeverity.DEBUG)
+        # self.__logger.set_level(LoggingSeverity.DEBUG)
         self.__node.declare_parameter('rate_ros', 500.0)
         self._rate_param["ros"] = self.__node.get_parameter('rate_ros').value
         self.__rate = self.__node.create_rate(self._rate_param["ros"])
@@ -66,13 +73,7 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('rate_teleop', 100.0)
         self.__node.declare_parameter('model_urdf', "")
         self.__node.declare_parameter('model_frame_id', "base_link")
-        self.__node.declare_parameter(
-            'pose_end_in_flange',
-            [0.187, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        )
         self.__node.declare_parameter('gravity', [0.0, 0.0, -9.81])
-        self.__node.declare_parameter('arm_start_pos',
-                                      [0.0, -1.5, 3.0, 0.07, 0.0, 0.0])
         self.__node.declare_parameter('arm_end_pos',
                                       [0.0, -1.5, 3.0, 0.07, 0.0, 0.0])
         self.__node.declare_parameter('grip_stable_pos', [0.5])
@@ -81,30 +82,18 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('arm_stable_kd', [5.0, 5.0, 5.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_stable_kp', [10.0])
         self.__node.declare_parameter('grip_stable_kd', [0.5])
-        self.__node.declare_parameter('arm_master_kp',
-                                      [0.0, 0.0, 0.0, 150.0, 100.0, 100.0])
-        self.__node.declare_parameter('arm_master_kd',
-                                      [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
-        self.__node.declare_parameter('grip_master_kp', [10.0])
-        self.__node.declare_parameter('grip_master_kd', [0.5])
         self.__node.declare_parameter('arm_slave_kp',
-                                      [0.0, 0.0, 0.0, 150.0, 100.0, 100.0])
-        self.__node.declare_parameter('arm_slave_kd', [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
+                                      [200.0, 200.0, 250.0, 200.0, 100.0, 100.0])
+        self.__node.declare_parameter('arm_slave_kd', [5.0, 5.0, 5.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_slave_kp', [10.0])
         self.__node.declare_parameter('grip_slave_kd', [0.5])
-        self.__node.declare_parameter('arm_master_deadzone',
-                                      [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        self.__node.declare_parameter('arm_master_clip',
-                                      [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
-        self.__node.declare_parameter('arm_slave_deadzone',
-                                      [0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        self.__node.declare_parameter('arm_slave_clip',
-                                      [1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
-        self.__node.declare_parameter('grip_master_deadzone', [0.01])
-        self.__node.declare_parameter('grip_master_clip', [0.5])
-        self.__node.declare_parameter('grip_slave_deadzone', [0.01])
-        self.__node.declare_parameter('grip_slave_clip', [0.3])
-        self.__node.declare_parameter('extra_mass', 0.0)
+        self.__node.declare_parameter('robot_grip_type', 'gr100')
+        self.__node.declare_parameter('velocity_coupling_coeff', 1.0)
+        self.__node.declare_parameter('error_proportional_gain', 1.0)
+        self.__node.declare_parameter('arm_kmin', 10.0)
+        self.__node.declare_parameter('arm_kmax', 200.0)
+        self.__node.declare_parameter('grip_kmin', 10.0)
+        self.__node.declare_parameter('grip_kmax', 200.0)
 
         self._rate_param.update({
             "teleop":
@@ -115,14 +104,10 @@ class DataInterface(InterfaceBase):
             self.__node.get_parameter('model_urdf').value,
             "frame_id":
             self.__node.get_parameter('model_frame_id').value,
-            "pose_end_in_flange":
-            list(self.__node.get_parameter('pose_end_in_flange').value),
         }
-        self._force_feedback_param = {
+        self._follow_param = {
             "gravity":
             list(self.__node.get_parameter('gravity').value),
-            "arm_start_pos":
-            list(self.__node.get_parameter('arm_start_pos').value),
             "arm_end_pos":
             list(self.__node.get_parameter('arm_end_pos').value),
             "grip_stable_pos":
@@ -135,14 +120,6 @@ class DataInterface(InterfaceBase):
             list(self.__node.get_parameter('grip_stable_kp').value),
             "grip_stable_kd":
             list(self.__node.get_parameter('grip_stable_kd').value),
-            "arm_master_kp":
-            list(self.__node.get_parameter('arm_master_kp').value),
-            "arm_master_kd":
-            list(self.__node.get_parameter('arm_master_kd').value),
-            "grip_master_kp":
-            list(self.__node.get_parameter('grip_master_kp').value),
-            "grip_master_kd":
-            list(self.__node.get_parameter('grip_master_kd').value),
             "arm_slave_kp":
             list(self.__node.get_parameter('arm_slave_kp').value),
             "arm_slave_kd":
@@ -151,24 +128,20 @@ class DataInterface(InterfaceBase):
             list(self.__node.get_parameter('grip_slave_kp').value),
             "grip_slave_kd":
             list(self.__node.get_parameter('grip_slave_kd').value),
-            "arm_master_deadzone":
-            list(self.__node.get_parameter('arm_master_deadzone').value),
-            "arm_master_clip":
-            list(self.__node.get_parameter('arm_master_clip').value),
-            "arm_slave_deadzone":
-            list(self.__node.get_parameter('arm_slave_deadzone').value),
-            "arm_slave_clip":
-            list(self.__node.get_parameter('arm_slave_clip').value),
-            "grip_master_deadzone":
-            list(self.__node.get_parameter('grip_master_deadzone').value),
-            "grip_master_clip":
-            list(self.__node.get_parameter('grip_master_clip').value),
-            "grip_slave_deadzone":
-            list(self.__node.get_parameter('grip_slave_deadzone').value),
-            "grip_slave_clip":
-            list(self.__node.get_parameter('grip_slave_clip').value),
-            "extra_mass":
-            float(self.__node.get_parameter('extra_mass').value),
+            "robot_grip_type":
+            str(self.__node.get_parameter('robot_grip_type').value),
+            "velocity_coupling_coeff":
+            float(self.__node.get_parameter('velocity_coupling_coeff').value),
+            "error_proportional_gain":
+            float(self.__node.get_parameter('error_proportional_gain').value),
+            "arm_kmin":
+            float(self.__node.get_parameter('arm_kmin').value),
+            "arm_kmax":
+            float(self.__node.get_parameter('arm_kmax').value),
+            "grip_kmin":
+            float(self.__node.get_parameter('grip_kmin').value),
+            "grip_kmax":
+            float(self.__node.get_parameter('grip_kmax').value),
         }
 
         ### publisher
@@ -180,6 +153,11 @@ class DataInterface(InterfaceBase):
         self.__slave_manip_ctrl_pub = self.__node.create_publisher(
             HexRosRoboManipCtrlStamped,
             'slave/manip_ctrl',
+            10,
+        )
+        self.__master_color_cmd_pub = self.__node.create_publisher(
+            ColorRGBA,
+            'master/color_cmd',
             10,
         )
 
@@ -212,8 +190,15 @@ class DataInterface(InterfaceBase):
             self.__slave_manip_state_callback,
             10,
         )
+        self.__master_joy_state_sub = self.__node.create_subscription(
+            HexRosTeleopHandleStateStamped,
+            'master/joy_state',
+            self.__master_joy_state_callback,
+            10,
+        )
         self.__master_manip_state_sub
         self.__slave_manip_state_sub
+        self.__master_joy_state_sub
 
         ### spin thread
         self.__shutting_down = False
@@ -289,6 +274,14 @@ class DataInterface(InterfaceBase):
         )
         self.__slave_manip_ctrl_pub.publish(msg)
 
+    def pub_master_color_cmd(self, r: float, g: float, b: float):
+        msg = ColorRGBA()
+        msg.r = r
+        msg.g = g
+        msg.b = b
+        msg.a = 1.0
+        self.__master_color_cmd_pub.publish(msg)
+
     @staticmethod
     def __jnt_to_msg(jnt) -> HexRosJnt:
         return HexRosJnt(
@@ -349,6 +342,9 @@ class DataInterface(InterfaceBase):
         self._slave_manip_state_deque.append(
             self.__manip_state_msg_to_dc(msg))
 
+    def __master_joy_state_callback(self, msg: HexRosTeleopHandleStateStamped):
+        self._joy_state_deque.append(self.__joy_state_msg_to_dc(msg))
+
     @staticmethod
     def __keyboard_msg_to_dc(
             msg: HexRosTeleopKeyboardStateStamped) -> HexDcTeleopKeyboardState:
@@ -358,6 +354,20 @@ class DataInterface(InterfaceBase):
             for letter in _LETTERS
         }
         return HexDcTeleopKeyboardState(**kwargs)
+
+    @staticmethod
+    def __joy_state_msg_to_dc(
+            msg: HexRosTeleopHandleStateStamped) -> HexDcTeleopHandleState:
+        hs = msg.handle_state
+        return HexDcTeleopHandleState(
+            trigger=float(hs.trigger),
+            axis_x=float(hs.axis_x),
+            axis_y=float(hs.axis_y),
+            btn_w=bool(hs.btn_w),
+            btn_x=bool(hs.btn_x),
+            btn_y=bool(hs.btn_y),
+            btn_z=bool(hs.btn_z),
+        )
 
     @staticmethod
     def __jnt_state_to_dc(jnt) -> HexDcBaseJntState:
