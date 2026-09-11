@@ -41,7 +41,7 @@ def generate_launch_description():
             ('master/joy_state', 'master/joy_state'),
             ('slave/manip_state', 'slave/manip_state'),
             ('slave/manip_ctrl', 'slave/manip_ctrl'),
-            ('teleop_keyboard_state', 'teleop_keyboard_state'),
+            ('teleop_keyboard_state', '/teleop_keyboard_state'),
         ],
     )
 

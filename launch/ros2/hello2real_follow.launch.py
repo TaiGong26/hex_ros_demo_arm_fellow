@@ -10,6 +10,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import GroupAction
 from launch.actions import IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.substitutions import PathJoinSubstitution
@@ -55,6 +56,11 @@ def generate_launch_description():
         default_value='archer',
         choices=['archer', 'firefly'],
         description='Robot arm type: archer or firefly')
+    enable_keyboard_arg = DeclareLaunchArgument(
+        name='enable_keyboard',
+        default_value='true',
+        choices=['true', 'false'],
+        description='Whether to launch the keyboard teleoperation node')
 
     # robot launch file name: "archer.launch.py" / "firefly.launch.py"
     robot_launch_file = PythonExpression(
@@ -92,7 +98,9 @@ def generate_launch_description():
     keyboard_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
-                [keyboard_pkg_path, "teleop_keyboard.launch.py"])), )
+                [keyboard_pkg_path, "teleop_keyboard.launch.py"])),
+        condition=IfCondition(LaunchConfiguration('enable_keyboard')),
+    )
 
     # ------------------------------------------------------------------
     # Follow node (real: no use_sim_time)
@@ -119,7 +127,7 @@ def generate_launch_description():
             ('master/joy_state', 'master/joy_state'),
             ('slave/manip_state', 'slave/manip_state'),
             ('slave/manip_ctrl', 'slave/manip_ctrl'),
-            ('teleop_keyboard_state', 'teleop_keyboard_state'),
+            ('teleop_keyboard_state', '/teleop_keyboard_state'),
         ],
     )
 
@@ -131,6 +139,7 @@ def generate_launch_description():
         slave_robot_port_arg,
         robot_grip_type_arg,
         robot_type_arg,
+        enable_keyboard_arg,
         # master (real hello) / slave (real archer) instances
         GroupAction([PushRosNamespace('master'), master_launch]),
         GroupAction([PushRosNamespace('slave'), slave_launch]),

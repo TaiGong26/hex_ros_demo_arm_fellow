@@ -53,6 +53,8 @@ _LETTERS = [chr(c) for c in range(ord('a'), ord('z') + 1)]
 
 from rclpy.logging import LoggingSeverity
 
+
+
 class DataInterface(InterfaceBase):
 
     def __init__(self, name: str = "unknown"):
@@ -81,8 +83,8 @@ class DataInterface(InterfaceBase):
         self.__node.declare_parameter('grip_stable_kp', [10.0])
         self.__node.declare_parameter('grip_stable_kd', [0.5])
         self.__node.declare_parameter('arm_slave_kp',
-                                      [0.0, 0.0, 0.0, 150.0, 100.0, 100.0])
-        self.__node.declare_parameter('arm_slave_kd', [0.0, 0.0, 0.0, 5.0, 2.0, 2.0])
+                                      [200.0, 200.0, 250.0, 200.0, 100.0, 100.0])
+        self.__node.declare_parameter('arm_slave_kd', [5.0, 5.0, 5.0, 5.0, 2.0, 2.0])
         self.__node.declare_parameter('grip_slave_kp', [10.0])
         self.__node.declare_parameter('grip_slave_kd', [0.5])
         self.__node.declare_parameter('robot_grip_type', 'gr100')

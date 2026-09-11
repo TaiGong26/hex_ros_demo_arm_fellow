@@ -13,7 +13,7 @@ import traceback
 import threading
 from typing import Optional, Tuple
 import numpy as np
-from utility import DataInterface
+from .utility import DataInterface
 
 from hex_util_msg.dataclass.dataclass_base import (
     HexDcBaseVector3,
@@ -29,7 +29,7 @@ from hex_util_msg.dataclass.dataclass_robo import (
     HexDcRoboManipCtrl,
 )
 
-from TrajectoryController import Move2TargetPlanner
+from .TrajectoryController import Move2TargetPlanner
 
 ARM_DOF = 6
 GRIP_DOF = 1
