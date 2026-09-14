@@ -12,6 +12,7 @@
     <arg name="slave_robot_port" default="8439"/>
     <arg name="robot_grip_type" default="empty"/>
     <arg name="robot_type" default="archer"/>
+    <arg name="enable_keyboard" default="true"/>
 
     <!-- master robot (real hello, read-only) -->
     <group ns="master">
@@ -40,7 +41,7 @@
     </group>
 
     <!-- keyboard teleop -->
-    <include file="$(find hex_ros_teleop_keyboard)/launch/ros1/teleop_keyboard.launch"/>
+    <include if="$(arg enable_keyboard)" file="$(find hex_ros_teleop_keyboard)/launch/ros1/teleop_keyboard.launch"/>
 
     <!-- follow control node (robot_grip_type passed to node, same as ROS2) -->
     <include file="$(find hex_ros_demo_arm_follow)/launch/ros1/arm_follow.launch">

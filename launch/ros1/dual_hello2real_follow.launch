@@ -1,0 +1,56 @@
+<!--#######################################-->
+<!-- Copyright (c) 2026  Dong Zhaorui.     -->
+<!-- All rights reserved.                  -->
+<!-- Author: Dong Zhaorui 847235539@qq.com -->
+<!-- Date  : 2026-08-13                    -->
+<!--#######################################-->
+
+<launch>
+    <arg name="enable_keyboard" default="true"/>
+
+    <!-- Left group arguments -->
+    <arg name="left_master_robot_host" default="192.168.1.100"/>
+    <arg name="left_master_robot_port" default="8439"/>
+    <arg name="left_slave_robot_host" default="192.168.1.101"/>
+    <arg name="left_slave_robot_port" default="8439"/>
+    <arg name="left_robot_grip_type" default="empty"/>
+    <arg name="left_robot_type" default="archer"/>
+
+    <!-- Right group arguments -->
+    <arg name="right_master_robot_host" default="192.168.1.102"/>
+    <arg name="right_master_robot_port" default="8439"/>
+    <arg name="right_slave_robot_host" default="192.168.1.103"/>
+    <arg name="right_slave_robot_port" default="8439"/>
+    <arg name="right_robot_grip_type" default="empty"/>
+    <arg name="right_robot_type" default="archer"/>
+
+    <!-- Left follow group -->
+    <group ns="left">
+        <include file="$(find hex_ros_demo_arm_follow)/launch/ros1/hello2real_follow.launch">
+            <arg name="master_robot_host" value="$(arg left_master_robot_host)"/>
+            <arg name="master_robot_port" value="$(arg left_master_robot_port)"/>
+            <arg name="slave_robot_host" value="$(arg left_slave_robot_host)"/>
+            <arg name="slave_robot_port" value="$(arg left_slave_robot_port)"/>
+            <arg name="robot_grip_type" value="$(arg left_robot_grip_type)"/>
+            <arg name="robot_type" value="$(arg left_robot_type)"/>
+            <arg name="enable_keyboard" value="false"/>
+        </include>
+    </group>
+
+    <!-- Right follow group -->
+    <group ns="right">
+        <include file="$(find hex_ros_demo_arm_follow)/launch/ros1/hello2real_follow.launch">
+            <arg name="master_robot_host" value="$(arg right_master_robot_host)"/>
+            <arg name="master_robot_port" value="$(arg right_master_robot_port)"/>
+            <arg name="slave_robot_host" value="$(arg right_slave_robot_host)"/>
+            <arg name="slave_robot_port" value="$(arg right_slave_robot_port)"/>
+            <arg name="robot_grip_type" value="$(arg right_robot_grip_type)"/>
+            <arg name="robot_type" value="$(arg right_robot_type)"/>
+            <arg name="enable_keyboard" value="false"/>
+        </include>
+    </group>
+
+    <!-- One shared keyboard node outside both arm namespaces -->
+    <include if="$(arg enable_keyboard)"
+             file="$(find hex_ros_teleop_keyboard)/launch/ros1/teleop_keyboard.launch"/>
+</launch>
