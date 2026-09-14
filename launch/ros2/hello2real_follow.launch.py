@@ -32,15 +32,15 @@ def generate_launch_description():
     # ------------------------------------------------------------------
     master_robot_host_arg = DeclareLaunchArgument(
         name='master_robot_host',
-        default_value='192.168.1.100',
+        default_value='172.18.0.201',
         description='Master robot controller IP address')
     master_robot_port_arg = DeclareLaunchArgument(
         name='master_robot_port',
-        default_value='8439',
+        default_value='9439',
         description='Master robot controller WebSocket port')
     slave_robot_host_arg = DeclareLaunchArgument(
         name='slave_robot_host',
-        default_value='192.168.1.101',
+        default_value='172.18.23.100',
         description='Slave robot controller IP address')
     slave_robot_port_arg = DeclareLaunchArgument(
         name='slave_robot_port',

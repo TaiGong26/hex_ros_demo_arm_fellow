@@ -46,7 +46,6 @@ _GRIP_LIMITS: dict[str, tuple[float, float]] = {
 LED_YELLOW = (1.0, 1.0, 0.0)
 LED_GREEN = (0.0, 1.0, 0.0)
 
-
 class ArmFollow:
 
     def __init__(self):

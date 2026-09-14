@@ -31,7 +31,7 @@ def generate_launch_description():
     # Left group arguments.
     left_master_robot_host_arg = DeclareLaunchArgument(
         name='left_master_robot_host',
-        default_value='198.168.100.1',
+        default_value='172.18.0.201',
         description='Left master robot controller IP address')
     left_master_robot_port_arg = DeclareLaunchArgument(
         name='left_master_robot_port',
@@ -39,7 +39,7 @@ def generate_launch_description():
         description='Left master robot controller WebSocket port')
     left_slave_robot_host_arg = DeclareLaunchArgument(
         name='left_slave_robot_host',
-        default_value='172.18.23.100',
+        default_value='172.18.20.80',
         description='Left slave robot controller IP address')
     left_slave_robot_port_arg = DeclareLaunchArgument(
         name='left_slave_robot_port',
@@ -52,14 +52,14 @@ def generate_launch_description():
         description='Left slave robot grip type')
     left_robot_type_arg = DeclareLaunchArgument(
         name='left_robot_type',
-        default_value='archer',
+        default_value='firefly',
         choices=['archer', 'firefly'],
         description='Left slave robot arm type')
 
     # Right group arguments.
     right_master_robot_host_arg = DeclareLaunchArgument(
         name='right_master_robot_host',
-        default_value='198.168.100.1',
+        default_value='172.18.0.201',
         description='Right master robot controller IP address')
     right_master_robot_port_arg = DeclareLaunchArgument(
         name='right_master_robot_port',
@@ -67,7 +67,7 @@ def generate_launch_description():
         description='Right master robot controller WebSocket port')
     right_slave_robot_host_arg = DeclareLaunchArgument(
         name='right_slave_robot_host',
-        default_value='172.18.23.100',
+        default_value='172.18.20.80',
         description='Right slave robot controller IP address')
     right_slave_robot_port_arg = DeclareLaunchArgument(
         name='right_slave_robot_port',
@@ -80,7 +80,7 @@ def generate_launch_description():
         description='Right slave robot grip type')
     right_robot_type_arg = DeclareLaunchArgument(
         name='right_robot_type',
-        default_value='archer',
+        default_value='firefly',
         choices=['archer', 'firefly'],
         description='Right slave robot arm type')
 
