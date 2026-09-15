@@ -40,11 +40,13 @@ hex_ros_demo_arm_follow/
 ├── launch/                                  # ROS launch files
 │   ├── ros1/
 │   │   ├── arm_follow.launch                #   Standalone node launch
-│   │   ├── hello2real_follow.launch         #   Real-to-real full launch
+│   │   ├── hello2real_follow.launch         #   Single real-to-real group
+│   │   ├── dual_hello2real_follow.launch    #   Dual real-to-real launch
 │   │   └── hello2sim_follow.launch          #   Real-to-sim full launch
 │   └── ros2/
 │       ├── arm_follow.launch.py             #   Standalone node launch
-│       ├── hello2real_follow.launch.py      #   Real-to-real full launch
+│       ├── hello2real_follow.launch.py      #   Single real-to-real group
+│       ├── dual_hello2real_follow.launch.py #   Dual real-to-real launch
 │       └── hello2sim_follow.launch.py       #   Real-to-sim full launch
 ├── hex_ros_demo_arm_follow/                 # Core source
 │   ├── arm_follow.py                        #   Main node: master-slave follow control loop
@@ -174,19 +176,93 @@ source install/setup.bash
 
 ### 4. Use
 
-This package provides two full launch scenarios plus a standalone node launch. PD gains and dynamic gain ranges and other parameters are configured in `config/<ros_version>/arm_follow.yaml`.
+This package provides real-to-simulation, single real-to-real, dual real-to-real, and standalone node launches. PD gains, dynamic gain ranges, and other parameters are configured in `config/<ros_version>/arm_follow.yaml`. For full launches, edit the default values in the corresponding launch file instead of passing connection arguments repeatedly on the command line.
 
 **ROS 2:**
 
-```shell
-# Real-to-simulation (hello2sim): master is real Hello Y6 (read-only), slave is Archer simulation
-ros2 launch hex_ros_demo_arm_follow hello2sim_follow.launch.py \
-    master_robot_host:=<hello_ip> master_robot_port:=8439 viewer:=true rviz:=false
+First edit the default values. For a single real-to-real group, edit `launch/ros2/hello2real_follow.launch.py`:
 
-# Real-to-real (hello2real): master is real Hello Y6 (read-only), slave is real Archer Y6
-ros2 launch hex_ros_demo_arm_follow hello2real_follow.launch.py \
-    master_robot_host:=<hello_ip> master_robot_port:=8439 \
-    slave_robot_host:=<archer_ip> slave_robot_port:=8439 robot_grip_type:=gr100 robot_type:=archer
+```python
+master_robot_host_arg = DeclareLaunchArgument(
+    name='master_robot_host',
+    default_value='192.168.1.100')
+master_robot_port_arg = DeclareLaunchArgument(
+    name='master_robot_port',
+    default_value='8439')
+slave_robot_host_arg = DeclareLaunchArgument(
+    name='slave_robot_host',
+    default_value='192.168.1.101')
+slave_robot_port_arg = DeclareLaunchArgument(
+    name='slave_robot_port',
+    default_value='8439')
+robot_grip_type_arg = DeclareLaunchArgument(
+    name='robot_grip_type',
+    default_value='empty')
+robot_type_arg = DeclareLaunchArgument(
+    name='robot_type',
+    default_value='archer')
+enable_keyboard_arg = DeclareLaunchArgument(
+    name='enable_keyboard',
+    default_value='true')
+```
+
+For dual real-to-real groups, edit the corresponding declarations in `launch/ros2/dual_hello2real_follow.launch.py`:
+
+```python
+enable_keyboard_arg = DeclareLaunchArgument(
+    name='enable_keyboard',
+    default_value='true')
+
+left_master_robot_host_arg = DeclareLaunchArgument(
+    name='left_master_robot_host',
+    default_value='192.168.1.100')
+left_master_robot_port_arg = DeclareLaunchArgument(
+    name='left_master_robot_port',
+    default_value='8439')
+left_slave_robot_host_arg = DeclareLaunchArgument(
+    name='left_slave_robot_host',
+    default_value='192.168.1.101')
+left_slave_robot_port_arg = DeclareLaunchArgument(
+    name='left_slave_robot_port',
+    default_value='8439')
+left_robot_grip_type_arg = DeclareLaunchArgument(
+    name='left_robot_grip_type',
+    default_value='empty')
+left_robot_type_arg = DeclareLaunchArgument(
+    name='left_robot_type',
+    default_value='archer')
+
+right_master_robot_host_arg = DeclareLaunchArgument(
+    name='right_master_robot_host',
+    default_value='192.168.1.100')
+right_master_robot_port_arg = DeclareLaunchArgument(
+    name='right_master_robot_port',
+    default_value='9439')
+right_slave_robot_host_arg = DeclareLaunchArgument(
+    name='right_slave_robot_host',
+    default_value='192.168.1.101')
+right_slave_robot_port_arg = DeclareLaunchArgument(
+    name='right_slave_robot_port',
+    default_value='9439')
+right_robot_grip_type_arg = DeclareLaunchArgument(
+    name='right_robot_grip_type',
+    default_value='empty')
+right_robot_type_arg = DeclareLaunchArgument(
+    name='right_robot_type',
+    default_value='archer')
+```
+
+Then launch without repeating those arguments:
+
+```shell
+# Real-to-simulation
+ros2 launch hex_ros_demo_arm_follow hello2sim_follow.launch.py
+
+# Single real-to-real group
+ros2 launch hex_ros_demo_arm_follow hello2real_follow.launch.py
+
+# Dual real-to-real groups
+ros2 launch hex_ros_demo_arm_follow dual_hello2real_follow.launch.py
 
 # Start follow node only (requires separate arm state/control drivers)
 ros2 launch hex_ros_demo_arm_follow arm_follow.launch.py
@@ -194,18 +270,66 @@ ros2 launch hex_ros_demo_arm_follow arm_follow.launch.py
 
 **ROS 1:**
 
-```shell
-# Real-to-simulation (hello2sim)
-roslaunch hex_ros_demo_arm_follow hello2sim_follow.launch master_robot_host:=<hello_ip> viewer:=true rviz:=false
+First edit the default values. For a single real-to-real group, edit `launch/ros1/hello2real_follow.launch`:
 
-# Real-to-real (hello2real)
-roslaunch hex_ros_demo_arm_follow hello2real_follow.launch master_robot_host:=<hello_ip> slave_robot_host:=<archer_ip> robot_grip_type:=gr100 robot_type:=archer
+```xml
+<arg name="master_robot_host" default="192.168.1.100"/>
+<arg name="master_robot_port" default="8439"/>
+<arg name="slave_robot_host" default="192.168.1.101"/>
+<arg name="slave_robot_port" default="8439"/>
+<arg name="robot_grip_type" default="empty"/>
+<arg name="robot_type" default="archer"/>
+<arg name="enable_keyboard" default="true"/>
+```
+
+For dual real-to-real groups, edit the corresponding declarations in `launch/ros1/dual_hello2real_follow.launch`:
+
+```xml
+<arg name="enable_keyboard" default="true"/>
+
+<arg name="left_master_robot_host" default="192.168.1.100"/>
+<arg name="left_master_robot_port" default="8439"/>
+<arg name="left_slave_robot_host" default="192.168.1.101"/>
+<arg name="left_slave_robot_port" default="8439"/>
+<arg name="left_robot_grip_type" default="empty"/>
+<arg name="left_robot_type" default="archer"/>
+
+<arg name="right_master_robot_host" default="192.168.1.102"/>
+<arg name="right_master_robot_port" default="8439"/>
+<arg name="right_slave_robot_host" default="192.168.1.103"/>
+<arg name="right_slave_robot_port" default="8439"/>
+<arg name="right_robot_grip_type" default="empty"/>
+<arg name="right_robot_type" default="archer"/>
+```
+
+Then launch:
+
+```shell
+# Real-to-simulation
+roslaunch hex_ros_demo_arm_follow hello2sim_follow.launch
+
+# Single real-to-real group
+roslaunch hex_ros_demo_arm_follow hello2real_follow.launch
+
+# Dual real-to-real groups
+roslaunch hex_ros_demo_arm_follow dual_hello2real_follow.launch
 
 # Start follow node only
-roslaunch hex_ros_demo_arm_follow arm_follow.launch robot_grip_type:=gr100
+roslaunch hex_ros_demo_arm_follow arm_follow.launch
 ```
 
 > Ensure parameters in `config/` are correctly set. The URDF path is set automatically by the launch file.
+
+For dual launches, `enable_keyboard` controls one shared keyboard node in the root namespace. Set it to `false` to disable the keyboard node. Both follow nodes use `/teleop_keyboard_state`.
+
+Dual-launch topic namespaces are:
+
+```text
+/left/master/*
+/left/slave/*
+/right/master/*
+/right/slave/*
+```
 
 Keyboard control:
 

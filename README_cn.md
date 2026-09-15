@@ -40,11 +40,13 @@ hex_ros_demo_arm_follow/
 ├── launch/                                  # ROS launch 启动文件
 │   ├── ros1/
 │   │   ├── arm_follow.launch                #   单节点启动
-│   │   ├── hello2real_follow.launch         #   真机对真机完整启动
+│   │   ├── hello2real_follow.launch         #   真机对真机单组启动
+│   │   ├── dual_hello2real_follow.launch    #   双组真机对真机启动
 │   │   └── hello2sim_follow.launch          #   真机对仿真完整启动
 │   └── ros2/
 │       ├── arm_follow.launch.py             #   单节点启动
-│       ├── hello2real_follow.launch.py      #   真机对真机完整启动
+│       ├── hello2real_follow.launch.py      #   真机对真机单组启动
+│       ├── dual_hello2real_follow.launch.py #   双组真机对真机启动
 │       └── hello2sim_follow.launch.py       #   真机对仿真完整启动
 ├── hex_ros_demo_arm_follow/                 # 核心代码
 │   ├── arm_follow.py                        #   主节点：主从跟随控制循环
@@ -174,38 +176,160 @@ source install/setup.bash
 
 ### 4. 使用包
 
-本包提供两种完整启动场景的 launch 文件加单节点 launch，PD 增益和动态增益范围等参数在 `config/<ros_version>/arm_follow.yaml` 中配置。
+本包提供真机对仿真、真机对真机单组和双组真机对真机 launch，以及单节点 launch。PD 增益和动态增益范围等参数在 `config/<ros_version>/arm_follow.yaml` 中配置。完整 launch 的连接参数和机器人类型建议直接修改对应 launch 文件中的默认值；不需要在命令行重复传递。
 
 **ROS 2：**
 
+先修改对应 launch 文件中的 `default_value`。单组真机对真机请修改 `launch/ros2/hello2real_follow.launch.py`：
+
+```python
+master_robot_host_arg = DeclareLaunchArgument(
+    name='master_robot_host',
+    default_value='192.168.1.100')
+master_robot_port_arg = DeclareLaunchArgument(
+    name='master_robot_port',
+    default_value='8439')
+slave_robot_host_arg = DeclareLaunchArgument(
+    name='slave_robot_host',
+    default_value='192.168.1.101')
+slave_robot_port_arg = DeclareLaunchArgument(
+    name='slave_robot_port',
+    default_value='8439')
+robot_grip_type_arg = DeclareLaunchArgument(
+    name='robot_grip_type',
+    default_value='empty')
+robot_type_arg = DeclareLaunchArgument(
+    name='robot_type',
+    default_value='archer')
+enable_keyboard_arg = DeclareLaunchArgument(
+    name='enable_keyboard',
+    default_value='true')
+```
+
+双组真机对真机请修改 `launch/ros2/dual_hello2real_follow.launch.py` 中对应的：
+
+```python
+enable_keyboard_arg = DeclareLaunchArgument(
+    name='enable_keyboard',
+    default_value='true')
+
+left_master_robot_host_arg = DeclareLaunchArgument(
+    name='left_master_robot_host',
+    default_value='192.168.1.100')
+left_master_robot_port_arg = DeclareLaunchArgument(
+    name='left_master_robot_port',
+    default_value='8439')
+left_slave_robot_host_arg = DeclareLaunchArgument(
+    name='left_slave_robot_host',
+    default_value='192.168.1.101')
+left_slave_robot_port_arg = DeclareLaunchArgument(
+    name='left_slave_robot_port',
+    default_value='8439')
+left_robot_grip_type_arg = DeclareLaunchArgument(
+    name='left_robot_grip_type',
+    default_value='empty')
+left_robot_type_arg = DeclareLaunchArgument(
+    name='left_robot_type',
+    default_value='archer')
+
+right_master_robot_host_arg = DeclareLaunchArgument(
+    name='right_master_robot_host',
+    default_value='192.168.1.100')
+right_master_robot_port_arg = DeclareLaunchArgument(
+    name='right_master_robot_port',
+    default_value='9439')
+right_slave_robot_host_arg = DeclareLaunchArgument(
+    name='right_slave_robot_host',
+    default_value='192.168.1.101')
+right_slave_robot_port_arg = DeclareLaunchArgument(
+    name='right_slave_robot_port',
+    default_value='9439')
+right_robot_grip_type_arg = DeclareLaunchArgument(
+    name='right_robot_grip_type',
+    default_value='empty')
+right_robot_type_arg = DeclareLaunchArgument(
+    name='right_robot_type',
+    default_value='archer')
+```
+
+然后启动：
+
 ```shell
-# 真机对仿真（hello2sim）：主臂是真机 Hello Y6（只读），从臂是 Archer 仿真
-ros2 launch hex_ros_demo_arm_follow hello2sim_follow.launch.py \
-    master_robot_host:=<hello_ip> master_robot_port:=8439 viewer:=true rviz:=false
+# 真机对仿真
+ros2 launch hex_ros_demo_arm_follow hello2sim_follow.launch.py
 
-# 真机对真机（hello2real）：主臂是真机 Hello Y6（只读），从臂是真机 Archer Y6
-ros2 launch hex_ros_demo_arm_follow hello2real_follow.launch.py \
-    master_robot_host:=<hello_ip> master_robot_port:=8439 \
-    slave_robot_host:=<archer_ip> slave_robot_port:=8439 robot_grip_type:=gr100 robot_type:=archer
+# 真机对真机单组
+ros2 launch hex_ros_demo_arm_follow hello2real_follow.launch.py
 
-# 仅启动跟随节点（需自行提供主/从臂状态和控制驱动）
+# 双组真机对真机
+ros2 launch hex_ros_demo_arm_follow dual_hello2real_follow.launch.py
+
+# 仅启动跟随节点
 ros2 launch hex_ros_demo_arm_follow arm_follow.launch.py
 ```
 
 **ROS 1：**
 
-```shell
-# 真机对仿真（hello2sim）
-roslaunch hex_ros_demo_arm_follow hello2sim_follow.launch master_robot_host:=<hello_ip> viewer:=true rviz:=false
+先修改对应 launch 文件中的默认参数。单组真机对真机请修改 `launch/ros1/hello2real_follow.launch`：
 
-# 真机对真机（hello2real）
-roslaunch hex_ros_demo_arm_follow hello2real_follow.launch master_robot_host:=<hello_ip> slave_robot_host:=<archer_ip> robot_grip_type:=gr100 robot_type:=archer
+```xml
+<arg name="master_robot_host" default="192.168.1.100"/>
+<arg name="master_robot_port" default="8439"/>
+<arg name="slave_robot_host" default="192.168.1.101"/>
+<arg name="slave_robot_port" default="8439"/>
+<arg name="robot_grip_type" default="empty"/>
+<arg name="robot_type" default="archer"/>
+<arg name="enable_keyboard" default="true"/>
+```
+
+双组真机对真机请修改 `launch/ros1/dual_hello2real_follow.launch` 中对应的：
+
+```xml
+<arg name="enable_keyboard" default="true"/>
+
+<arg name="left_master_robot_host" default="192.168.1.100"/>
+<arg name="left_master_robot_port" default="8439"/>
+<arg name="left_slave_robot_host" default="192.168.1.101"/>
+<arg name="left_slave_robot_port" default="8439"/>
+<arg name="left_robot_grip_type" default="empty"/>
+<arg name="left_robot_type" default="archer"/>
+
+<arg name="right_master_robot_host" default="192.168.1.100"/>
+<arg name="right_master_robot_port" default="9439"/>
+<arg name="right_slave_robot_host" default="192.168.1.101"/>
+<arg name="right_slave_robot_port" default="9439"/>
+<arg name="right_robot_grip_type" default="empty"/>
+<arg name="right_robot_type" default="archer"/>
+```
+
+然后启动：
+
+```shell
+# 真机对仿真
+roslaunch hex_ros_demo_arm_follow hello2sim_follow.launch
+
+# 真机对真机单组
+roslaunch hex_ros_demo_arm_follow hello2real_follow.launch
+
+# 双组真机对真机
+roslaunch hex_ros_demo_arm_follow dual_hello2real_follow.launch
 
 # 仅启动跟随节点
-roslaunch hex_ros_demo_arm_follow arm_follow.launch robot_grip_type:=gr100
+roslaunch hex_ros_demo_arm_follow arm_follow.launch
 ```
 
 > 确保 `config/` 中的参数配置正确，URDF 路径由 launch 文件自动设置。
+
+双臂 launch 中，`enable_keyboard` 默认控制一个位于根命名空间的公共键盘节点。设置为 `false` 时不启动键盘节点；左右 follow 都使用 `/teleop_keyboard_state`。
+
+双臂话题命名空间为：
+
+```text
+/left/master/*
+/left/slave/*
+/right/master/*
+/right/slave/*
+```
 
 键盘控制：
 
