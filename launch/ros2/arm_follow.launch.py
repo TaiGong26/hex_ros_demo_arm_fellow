@@ -7,7 +7,8 @@
 ################################################################
 
 from launch import LaunchDescription
-from launch.substitutions import PathJoinSubstitution
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -16,6 +17,12 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     follow_pkg_path = FindPackageShare('hex_ros_demo_arm_follow')
     urdf_pkg_path = FindPackageShare('hex_ros_urdf_archer_y6')
+
+    use_sim_time_arg = DeclareLaunchArgument(
+        name='use_sim_time',
+        default_value='false',
+        choices=['true', 'false'],
+        description='Use the ROS simulation clock')
 
     # arm_follow node
     follow_param_path = PathJoinSubstitution(
@@ -33,7 +40,7 @@ def generate_launch_description():
             follow_param_path,
             {
                 "model_urdf": ParameterValue(urdf_file_path, value_type=str),
-                "use_sim_time": True,
+                "use_sim_time": LaunchConfiguration('use_sim_time'),
             },
         ],
         remappings=[
@@ -46,5 +53,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        use_sim_time_arg,
         arm_follow_node,
     ])

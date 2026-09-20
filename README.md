@@ -3,90 +3,203 @@
 
 ## Table of Contents
 
-- [1. About](#1-about)
-- [2. Package Structure](#2-package-structure)
-- [3. Topics](#3-topics)
-- [4. Parameters](#4-parameters)
-- [5. Dependencies](#5-dependencies)
-- [6. Quick Start](#6-quick-start)
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Topics](#topics)
+- [Parameters](#parameters)
+- [Project Structure](#project-structure)
 
----
+## Overview
 
-## 1. About
+`hex_ros_demo_arm_follow` demonstrates master-slave following from a Hello Y6 to an Archer Y6 or Firefly Y6. The operator moves the Hello Y6 to provide master state, while the slave receives commands that follow the arm joints and gripper input.
 
-This is the **master-slave follow demo** for the **HEXFELLOW** Archer Y6 robotic arm. The **master arm is always a real Hello Y6** (read-only, hand-held by the operator); the slave arm is a real or simulated Archer Y6.
+It provides:
 
-The master-slave follow control loop centers on `__follow`, performing the following functions:
+- real Hello Y6 to simulated Archer Y6 following;
+- single or dual real master-slave setups;
+- a standalone follow node for custom integration.
 
-- **Master-slave follow control** — At each cycle, reads real-time joint states from both the master arm (Hello Y6) and slave arm (Archer Y6), computes follow commands with an error-adaptive dynamic proportional gain (`tanh` saturation), coupled with the master arm's velocity feedforward, and publishes MIT impedance control commands (`__build_follow_ctrl`, slave-side PD gains + gravity compensation), so the slave arm smoothly follows the master arm's position.
-- **Master arm read-only** — The master arm is a read-only Hello Y6 (no `manip_ctrl` commands are published to it), manually moved by the operator.
-- **Gripper follow** — The 1-DoF slave gripper is controlled by the master arm handle's trigger, clipped to the gripper limits by model (`robot_grip_type`); gripper follow is disabled when the model is unknown.
-- **Smooth start/exit** — On start, the slave arm slowly approaches the master arm's position to go online (exponential approach, τ = 0.8 s); on exit, it smoothly returns from its current position to the stable position via the trajectory planner.
-- **Keyboard control** — Press **`q`** to stop follow control; the slave arm returns to home position and exits.
+This package supports **ROS 2 Humble** and is compatible with **ROS 1 Noetic**.
 
-Supports both **ROS 1** and **ROS 2**, with two full launch scenarios: real-to-simulation (hello2sim, master = real Hello, slave = simulation) and real-to-real (hello2real, master = real Hello, slave = real Archer).
+## Quick Start
 
----
+> Complete [Installation](#installation) before launching.
 
-## 2. Package Structure
+### 1. Launch scenarios
 
-```
-hex_ros_demo_arm_follow/
-├── config/                                  # Configuration files
-│   ├── ros1/
-│   │   └── arm_follow.yaml                  #   ROS 1 params (follow)
-│   └── ros2/
-│       └── arm_follow.yaml                  #   ROS 2 params (follow)
-├── launch/                                  # ROS launch files
-│   ├── ros1/
-│   │   ├── arm_follow.launch                #   Standalone node launch
-│   │   ├── hello2real_follow.launch         #   Real-to-real full launch
-│   │   └── hello2sim_follow.launch          #   Real-to-sim full launch
-│   └── ros2/
-│       ├── arm_follow.launch.py             #   Standalone node launch
-│       ├── hello2real_follow.launch.py      #   Real-to-real full launch
-│       └── hello2sim_follow.launch.py       #   Real-to-sim full launch
-├── hex_ros_demo_arm_follow/                 # Core source
-│   ├── arm_follow.py                        #   Main node: master-slave follow control loop
-│   ├── TrajectoryController.py              #   Trajectory planner
-│   └── utility/                             #   Dual-layer ROS interface abstraction
-│       ├── __init__.py                      #     ROS version selector (ROS_VERSION env var)
-│       ├── interface_base.py                #     Abstract base class (InterfaceBase)
-│       ├── ros1_interface.py                #     ROS 1 DataInterface
-│       └── ros2_interface.py                #     ROS 2 DataInterface
-├── resource/                                # ament resource index
-├── setup.py                                 # Python packaging (ROS 2)
-├── CMakeLists.txt                           # CMake packaging (ROS 1)
-├── package.xml                              # ROS package manifest (dual-system conditional deps)
-├── README.md                                # English documentation
-└── README_cn.md                             # Chinese documentation
+#### Real-to-simulation (hello2sim)
+
+This scenario connects a real Hello Y6 master to a simulated Archer Y6 slave for follow-logic validation.
+
+ROS 2:
+
+```shell
+ros2 launch hex_ros_demo_arm_follow hello2sim_follow.launch.py \
+    master_robot_host:=192.168.1.100 master_robot_port:=8439
 ```
 
----
+ROS 1:
 
-## 3. Topics
+```shell
+roslaunch hex_ros_demo_arm_follow hello2sim_follow.launch \
+    master_robot_host:=192.168.1.100 master_robot_port:=8439
+```
+
+#### Single real-to-real (hello2real)
+
+Master arm is a real Hello Y6; the slave may be a real Archer Y6 or Firefly Y6.
+
+ROS 2:
+
+```shell
+ros2 launch hex_ros_demo_arm_follow hello2real_follow.launch.py \
+    master_robot_host:=192.168.1.100 master_robot_port:=8439 \
+    slave_robot_host:=192.168.1.101 slave_robot_port:=8439 \
+    robot_type:=archer robot_grip_type:=empty enable_keyboard:=true
+```
+
+ROS 1:
+
+```shell
+roslaunch hex_ros_demo_arm_follow hello2real_follow.launch \
+    master_robot_host:=192.168.1.100 master_robot_port:=8439 \
+    slave_robot_host:=192.168.1.101 slave_robot_port:=8439 \
+    robot_type:=archer robot_grip_type:=empty enable_keyboard:=true
+```
+
+#### Dual real-to-real (dual_hello2real)
+
+Two master-slave groups run simultaneously, one on the left and one on the right.
+
+ROS 2:
+
+```shell
+ros2 launch hex_ros_demo_arm_follow dual_hello2real_follow.launch.py \
+    left_master_robot_host:=192.168.1.100 left_master_robot_port:=8439 \
+    left_slave_robot_host:=192.168.1.101 left_slave_robot_port:=8439 \
+    left_robot_type:=archer left_robot_grip_type:=empty \
+    right_master_robot_host:=192.168.1.100 right_master_robot_port:=9439 \
+    right_slave_robot_host:=192.168.1.101 right_slave_robot_port:=9439 \
+    right_robot_type:=archer right_robot_grip_type:=empty enable_keyboard:=true
+```
+
+ROS 1:
+
+```shell
+roslaunch hex_ros_demo_arm_follow dual_hello2real_follow.launch \
+    left_master_robot_host:=192.168.1.100 left_master_robot_port:=8439 \
+    left_slave_robot_host:=192.168.1.101 left_slave_robot_port:=8439 \
+    left_robot_type:=archer left_robot_grip_type:=empty \
+    right_master_robot_host:=192.168.1.100 right_master_robot_port:=9439 \
+    right_slave_robot_host:=192.168.1.101 right_slave_robot_port:=9439 \
+    right_robot_type:=archer right_robot_grip_type:=empty enable_keyboard:=true
+```
+
+### 2. Keyboard control
+
+- Follow starts automatically after the slave arm goes online — no key needed.
+- Press **`q`** to stop follow control; the slave arm returns to home position and exits.
+
+For dual launches, `enable_keyboard` controls one shared keyboard node in the root namespace:
+
+- Set it to `false` to disable the keyboard node.
+- Both follow nodes use `/teleop_keyboard_state`.
+
+> Dual launches use `/left/master/*`, `/left/slave/*`, `/right/master/*`, and `/right/slave/*`. Both follow nodes use the shared `/teleop_keyboard_state` topic.
+
+## Installation
+
+### Prerequisites
+
+- **ROS 2 Humble** is installed; use **ROS 1 Noetic** for ROS 1 compatibility.
+- Python 3, `pip3`, Git, and the build tools for the selected ROS version are installed.
+- For real-hardware scenarios, devices are reachable and the actual IP addresses, ports, and device models are known.
+
+### 1. Install Python Dependencies
+
+```shell
+pip3 install \
+    'hex-util-msg>=0.1.0' \
+    'hex-util-ros>=0.1.0' \
+    'hex-driver-robot>=0.1.0'
+```
+
+### 2. Create and Enter the Workspace
+
+```shell
+mkdir -p <your_ws>/src
+cd <your_ws>/src
+```
+
+### 3. Clone ROS Packages
+
+```shell
+git clone https://github.com/hexfellow/hex_ros_msgs.git
+git clone https://github.com/hexfellow/hex_ros_demo_arm_follow.git
+git clone https://github.com/hexfellow/hex_ros_robot_arm.git
+git clone https://github.com/hexfellow/hex_ros_sim_archer_y6.git
+git clone https://github.com/hexfellow/hex_ros_teleop_keyboard.git
+git clone https://github.com/hexfellow/hex_ros_urdf_archer_y6.git
+```
+
+### 4. Build
+
+**ROS 2:**
+
+```shell
+source /opt/ros/humble/setup.bash
+cd <your_ws>
+colcon build
+source install/setup.bash
+```
+
+**ROS 1:**
+
+```shell
+source /opt/ros/noetic/setup.bash
+cd <your_ws>
+catkin_make
+source devel/setup.bash
+```
+
+## Topics
 
 | Direction | Topic | Type | Description |
 |-----------|-------|------|-------------|
-| pub | `slave/manip_ctrl` | `hex_ros_msgs/(msg/)HexRosRoboManipCtrlStamped` | Slave arm MIT follow control command (arm + gripper) |
-| pub | `master/color_cmd` | `std_msgs/(msg/)ColorRGBA` | Master arm LED status indication (init/follow phases) |
-| sub | `master/manip_state` | `hex_ros_msgs/(msg/)HexRosRoboManipStateStamped` | Master arm (Hello Y6) real-time state |
-| sub | `slave/manip_state` | `hex_ros_msgs/(msg/)HexRosRoboManipStateStamped` | Slave arm (Archer Y6) real-time state |
-| sub | `master/joy_state` | `hex_ros_msgs/(msg/)HexRosTeleopHandleStateStamped` | Handle state (trigger → gripper follow) |
-| sub | `teleop_keyboard_state` | `hex_ros_msgs/(msg/)HexRosTeleopKeyboardStateStamped` | Keyboard key state |
+| pub | `slave/manip_ctrl` | `hex_ros_msgs/msg/HexRosRoboManipCtrlStamped` | Slave arm control message |
+| pub | `master/color_cmd` | `std_msgs/msg/ColorRGBA` | Master arm color message |
+| sub | `master/manip_state` | `hex_ros_msgs/msg/HexRosRoboManipStateStamped` | Master arm state message |
+| sub | `slave/manip_state` | `hex_ros_msgs/msg/HexRosRoboManipStateStamped` | Slave arm state message |
+| sub | `master/joy_state` | `hex_ros_msgs/msg/HexRosTeleopHandleStateStamped` | Master arm handle state message |
+| sub | `teleop_keyboard_state` | `hex_ros_msgs/msg/HexRosTeleopKeyboardStateStamped` | Keyboard state message |
 
-> `master/manip_ctrl` is not published — the master Hello Y6 is a read-only device.
-> [Message Type Description](https://github.com/hexfellow/hex_ros_msgs#public-apis)
+> The Hello Y6 master provides state and handle input; control commands are published to the slave.
+>
+> Message type description: [hex_ros_msgs public APIs](https://github.com/hexfellow/hex_ros_msgs#public-apis)
 
----
+## Parameters
 
-## 4. Parameters
+### Launch Arguments
+
+| Argument | Meaning / Values |
+|---|---|
+| `master_robot_host / master_robot_port` | Master IP / port |
+| `slave_robot_host / slave_robot_port` | Slave IP / port; complete real launches only |
+| `robot_type` | `archer` or `firefly` |
+| `robot_grip_type` | gp100 / gp80 / gr100 / empty |
+| `viewer / rviz` | Simulation window switches; simulation scenarios only |
+| `enable_keyboard` | Keyboard switch for complete real launches; dual-arm connection arguments use left_ / right_ prefixes |
+
+### Node Parameters
+
+Parameters are set in `config/ros1/arm_follow.yaml` and `config/ros2/arm_follow.yaml`. Defaults are identical between ROS 1 and ROS 2.
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `rate_ros` | 1000.0 | Follow control loop rate [Hz] |
-| `rate_teleop` | 100.0 | Keyboard monitor rate [Hz] |
-| `model_urdf` | "" | URDF model file path (set by launch, not used by the node) |
+| `rate_ros` | `1000.0` | Follow control loop rate [Hz] |
+| `rate_teleop` | `100.0` | Keyboard monitor rate [Hz] |
+| `model_urdf` | `""` | URDF model file path (set by launch, not used by the node) |
 | `model_frame_id` | `base_link` | Robot base frame ID |
 | `gravity` | `[0.0, 0.0, -9.81]` | Gravity acceleration vector [m/s²] |
 | `arm_end_pos` | `[0.0, -1.5, 3.0, 0.07, 0.0, 0.0]` | Slave arm exit home position [rad] |
@@ -99,114 +212,51 @@ hex_ros_demo_arm_follow/
 | `arm_slave_kd` | `[5.0, 5.0, 5.0, 5.0, 2.0, 2.0]` | Slave arm follow PD gain — derivative |
 | `grip_slave_kp` | `[200.0]` | Slave gripper follow PD gain — proportional |
 | `grip_slave_kd` | `[1.0]` | Slave gripper follow PD gain — derivative |
-| `robot_grip_type` | `gr100` | Slave gripper model (gp100 / gp80 / gr100 / empty) |
-| `velocity_coupling_coeff` | 1.0 | Master arm velocity feedforward coupling coefficient |
-| `error_proportional_gain` | 1.0 | Dynamic gain error coefficient (`tanh` saturation) |
-| `arm_kmin` / `arm_kmax` | 10.0 / 200.0 | Slave arm dynamic proportional gain range |
-| `grip_kmin` / `grip_kmax` | 10.0 / 20.0 | Gripper dynamic proportional gain range |
+| `robot_grip_type` | `gr100` | Slave gripper model (`gp100` / `gp80` / `gr100` / `empty`) |
+| `velocity_coupling_coeff` | `1.0` | Master arm velocity feedforward coupling coefficient |
+| `error_proportional_gain` | `1.0` | Dynamic gain error coefficient (`tanh` saturation) |
+| `arm_kmin` / `arm_kmax` | `10.0` / `200.0` | Slave arm dynamic proportional gain range |
+| `grip_kmin` / `grip_kmax` | `10.0` / `20.0` | Gripper dynamic proportional gain range |
 
-> Parameters are set in `config/`. Defaults are identical between ROS 1 and ROS 2; `model_urdf` / `model_frame_id` are set by the launch file but not used by the follow node.
+> Defaults in this table come from the node parameters in `arm_follow.yaml`. Complete launches override the node's `robot_grip_type` with the command-line launch argument; the real-robot examples in this document use `empty`.
 
----
+## Project Structure
 
-## 5. Dependencies
-
-### Python Packages
-
-```shell
-pip3 install 'hex-util-msg>=0.1.0'
-pip3 install 'hex-util-ros>=0.1.0a4'
-pip3 install 'hex-driver-robot>=0.1.0'
+```text
+hex_ros_demo_arm_follow/
+├── config/
+│   ├── ros1/
+│   │   └── arm_follow.yaml                  # ROS 1 node parameters
+│   └── ros2/
+│       └── arm_follow.yaml                  # ROS 2 node parameters
+├── hex_ros_demo_arm_follow/
+│   ├── utility/
+│   │   ├── __init__.py                      # utility package initializer
+│   │   ├── interface_base.py                # ROS interface base class
+│   │   ├── ros1_interface.py                # ROS 1 interface
+│   │   └── ros2_interface.py                # ROS 2 interface
+│   ├── __init__.py                          # Python package initializer
+│   ├── arm_follow.py                        # Follow node
+│   └── TrajectoryController.py              # Trajectory control classes
+├── launch/
+│   ├── ros1/
+│   │   ├── arm_follow.launch                # ROS 1 follow-node launch file
+│   │   ├── dual_hello2real_follow.launch    # ROS 1 dual real-arm launch file
+│   │   ├── hello2real_follow.launch         # ROS 1 single real-arm launch file
+│   │   └── hello2sim_follow.launch          # ROS 1 real-to-simulation launch file
+│   └── ros2/
+│       ├── arm_follow.launch.py             # ROS 2 follow-node launch file
+│       ├── dual_hello2real_follow.launch.py # ROS 2 dual real-arm launch file
+│       ├── hello2real_follow.launch.py      # ROS 2 single real-arm launch file
+│       └── hello2sim_follow.launch.py       # ROS 2 real-to-simulation launch file
+├── resource/
+│   └── hex_ros_demo_arm_follow
+├── .gitignore
+├── CMakeLists.txt
+├── LICENSE
+├── package.xml
+├── README_cn.md
+├── README.md
+├── setup.cfg
+└── setup.py
 ```
-
-### ROS Packages
-
-```shell
-git clone https://github.com/hexfellow/hex_ros_msgs.git
-git clone https://github.com/hexfellow/hex_ros_demo_arm_follow.git
-git clone https://github.com/hexfellow/hex_ros_robot_arm.git
-git clone https://github.com/hexfellow/hex_ros_sim_archer_y6.git
-git clone https://github.com/hexfellow/hex_ros_teleop_keyboard.git
-git clone https://github.com/hexfellow/hex_ros_urdf_archer_y6.git
-```
-
----
-
-## 6. Quick Start
-
-### 1. Create Workspace
-
-```shell
-mkdir -p <your_ws>/src
-cd <your_ws>/src
-```
-
-### 2. Clone Repositories
-
-```shell
-git clone https://github.com/hexfellow/hex_ros_msgs.git
-git clone https://github.com/hexfellow/hex_ros_demo_arm_follow.git
-git clone https://github.com/hexfellow/hex_ros_robot_arm.git
-git clone https://github.com/hexfellow/hex_ros_sim_archer_y6.git
-git clone https://github.com/hexfellow/hex_ros_teleop_keyboard.git
-git clone https://github.com/hexfellow/hex_ros_urdf_archer_y6.git
-```
-
-### 3. Build
-
-**ROS 1:**
-
-```shell
-source /opt/ros/noetic/setup.bash
-cd <your_ws>
-catkin_make
-source devel/setup.bash
-```
-
-**ROS 2:**
-
-```shell
-source /opt/ros/humble/setup.bash
-cd <your_ws>
-colcon build
-source install/setup.bash
-```
-
-### 4. Use
-
-This package provides two full launch scenarios plus a standalone node launch. PD gains and dynamic gain ranges and other parameters are configured in `config/<ros_version>/arm_follow.yaml`.
-
-**ROS 2:**
-
-```shell
-# Real-to-simulation (hello2sim): master is real Hello Y6 (read-only), slave is Archer simulation
-ros2 launch hex_ros_demo_arm_follow hello2sim_follow.launch.py \
-    master_robot_host:=<hello_ip> master_robot_port:=8439 viewer:=true rviz:=false
-
-# Real-to-real (hello2real): master is real Hello Y6 (read-only), slave is real Archer Y6
-ros2 launch hex_ros_demo_arm_follow hello2real_follow.launch.py \
-    master_robot_host:=<hello_ip> master_robot_port:=8439 \
-    slave_robot_host:=<archer_ip> slave_robot_port:=8439 robot_grip_type:=gr100 robot_type:=archer
-
-# Start follow node only (requires separate arm state/control drivers)
-ros2 launch hex_ros_demo_arm_follow arm_follow.launch.py
-```
-
-**ROS 1:**
-
-```shell
-# Real-to-simulation (hello2sim)
-roslaunch hex_ros_demo_arm_follow hello2sim_follow.launch master_robot_host:=<hello_ip> viewer:=true rviz:=false
-
-# Real-to-real (hello2real)
-roslaunch hex_ros_demo_arm_follow hello2real_follow.launch master_robot_host:=<hello_ip> slave_robot_host:=<archer_ip> robot_grip_type:=gr100 robot_type:=archer
-
-# Start follow node only
-roslaunch hex_ros_demo_arm_follow arm_follow.launch robot_grip_type:=gr100
-```
-
-> Ensure parameters in `config/` are correctly set. The URDF path is set automatically by the launch file.
-
-Keyboard control:
-
-- **`q`** — Stop follow control; slave arm returns to home position and exits (follow starts automatically after the slave arm goes online — no key needed)

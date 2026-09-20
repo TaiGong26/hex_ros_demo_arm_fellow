@@ -1,4 +1,4 @@
-arm_follow:
+/**/arm_follow:
   ros__parameters:
     # master-slave follow work loop rate [hz]
     rate_ros: 1000.0
