@@ -1,5 +1,4 @@
-# hex_ros_demo_arm_follow — Hello Y6 Master-Slave Follow Demo
-
+# hex_ros_demo_arm_follow
 [中文](README_cn.md) | **English**
 
 ## Table of Contents

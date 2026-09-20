@@ -1,5 +1,4 @@
-# hex_ros_demo_arm_follow — Hello Y6 主从跟随演示
-
+# hex_ros_demo_arm_follow
 **中文** | [English](README.md)
 
 ## 目录
